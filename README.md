@@ -9,8 +9,8 @@ Keeps HTML/form-rendering concerns out of the core schema domain. Reads only
 
 ```php
 use Meraki\Schema\Facade;
-use Meraki\Schema\Html\SchemaHtmlRenderer;
-use Meraki\Schema\Html\UiOptions;
+use Meraki\Schema\Html\FormRenderer;
+use Meraki\Schema\Html\FormOptions;
 
 $schema = new Facade('signup');
 $schema->addNameField('full_name')->minLengthOf(1)->maxLengthOf(255);
@@ -18,22 +18,22 @@ $schema->addEmailAddressField('email');
 $schema->addBooleanField('subscribe')->makeOptional();
 
 // Optional: configure the form + per-field UI
-$ui = (new UiOptions($schema))->postTo('/signup');
-$ui->pickField('email')->label('Your email address');
+$options = (new FormOptions($schema))->postTo('/signup');
+$options->pickField('email')->label('Your email address');
 
-$html = (new SchemaHtmlRenderer($ui->toArray()))->render($schema);
+$html = (new FormRenderer($options->toArray()))->render($schema);
 ```
 
 Render after validation to surface inline error messages:
 
 ```php
-$schema->validate($_POST);
-echo (new SchemaHtmlRenderer($ui->toArray()))->render($schema);
+$schema->validate($input);
+echo (new FormRenderer($options->toArray()))->render($schema);
 ```
 
-## UI options
+## Form options
 
-`UiOptions` is a fluent builder producing the array the renderer consumes:
+`FormOptions` is a fluent builder producing the array the renderer consumes:
 
 - `postTo($url)` / `getFrom($url)` — form method + action.
 - `pickField($name)` → `FieldOptions`: `label()`, `renderAs(Renderer)`,

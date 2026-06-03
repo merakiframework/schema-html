@@ -6,10 +6,10 @@ namespace Meraki\Schema\Html;
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\Composite as CompositeField;
 
-final class FieldOptions implements FormOptions
+final class FieldOptions implements Options
 {
 	public function __construct(
-		private readonly UiOptions $root,
+		private readonly FormOptions $root,
 		private readonly Field $field,
 		private readonly array $path,
 	) {}

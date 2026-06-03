@@ -10,8 +10,10 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 #[Group('html')]
-#[CoversClass(SchemaHtmlRenderer::class)]
-final class SchemaHtmlRendererTest extends TestCase
+#[CoversClass(FormRenderer::class)]
+#[CoversClass(FormOptionResolver::class)]
+#[CoversClass(ValidationMessages::class)]
+final class FormRendererTest extends TestCase
 {
 	#[Test]
 	public function it_renders_a_form_with_an_input_per_field(): void
@@ -22,27 +24,41 @@ final class SchemaHtmlRendererTest extends TestCase
 		$schema->addBooleanField('subscribe')->makeOptional();
 		$schema->addEnumField('plan', ['free', 'pro']);
 
-		$html = (new SchemaHtmlRenderer())->render($schema);
+		$html = (new FormRenderer())->render($schema);
 
 		$this->assertStringContainsString('<form id="signup"', $html);
 		$this->assertStringContainsString('type="email"', $html);
 		$this->assertStringContainsString('type="checkbox"', $html);
 		$this->assertStringContainsString('type="radio"', $html);
 		$this->assertStringContainsString('<button type="submit">Submit</button>', $html);
-		// required field carries the attribute; optional one is rendered too
 		$this->assertStringContainsString('required', $html);
 	}
 
 	#[Test]
-	public function it_applies_ui_options_for_method_action_and_field_labels(): void
+	public function boolean_attributes_render_bare_and_false_ones_are_omitted(): void
+	{
+		$schema = new Facade('f');
+		$schema->addEmailAddressField('email'); // required (not optional)
+
+		$html = (new FormRenderer())->render($schema);
+
+		// required is present and bare (no ="...") thanks to nette Html
+		$this->assertMatchesRegularExpression('/<input[^>]*\srequired(\s|>)/', $html);
+		// readonly/disabled default false -> must NOT appear on the input
+		$this->assertStringNotContainsString('readonly', $html);
+		$this->assertStringNotContainsString('disabled', $html);
+	}
+
+	#[Test]
+	public function it_applies_form_options_for_method_action_and_field_labels(): void
 	{
 		$schema = new Facade('signup');
 		$schema->addEmailAddressField('email');
 
-		$ui = (new UiOptions($schema))->postTo('/signup');
-		$ui->pickField('email')->label('Your email address');
+		$options = (new FormOptions($schema))->postTo('/signup');
+		$options->pickField('email')->label('Your email address');
 
-		$html = (new SchemaHtmlRenderer($ui->toArray()))->render($schema);
+		$html = (new FormRenderer($options->toArray()))->render($schema);
 
 		$this->assertStringContainsString('action="/signup"', $html);
 		$this->assertStringContainsString('method="post"', $html);
@@ -55,7 +71,7 @@ final class SchemaHtmlRendererTest extends TestCase
 		$schema = new Facade('upload');
 		$schema->addFileField('resume');
 
-		$html = (new SchemaHtmlRenderer())->render($schema);
+		$html = (new FormRenderer())->render($schema);
 
 		$this->assertStringContainsString('enctype="multipart/form-data"', $html);
 		$this->assertStringContainsString('type="file"', $html);
@@ -67,9 +83,9 @@ final class SchemaHtmlRendererTest extends TestCase
 		$schema = new Facade('signup');
 		$schema->addNameField('full_name')->minLengthOf(1);
 
-		$schema->validate(['full_name' => null]); // required, missing -> fails
+		$schema->validate(['full_name' => null]);
 
-		$html = (new SchemaHtmlRenderer())->render($schema);
+		$html = (new FormRenderer())->render($schema);
 
 		$this->assertStringContainsString('<div class="errors">', $html);
 		$this->assertStringContainsString('<p>', $html);

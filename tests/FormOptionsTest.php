@@ -10,10 +10,10 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 #[Group('html')]
-#[CoversClass(UiOptions::class)]
+#[CoversClass(FormOptions::class)]
 #[CoversClass(FieldOptions::class)]
 #[CoversClass(Renderer::class)]
-final class UiOptionsTest extends TestCase
+final class FormOptionsTest extends TestCase
 {
 	#[Test]
 	public function it_builds_a_nested_options_array(): void
@@ -22,9 +22,9 @@ final class UiOptionsTest extends TestCase
 		$schema->addEmailAddressField('email');
 		$schema->addTextField('bio');
 
-		$ui = (new UiOptions($schema))->postTo('/signup');
-		$ui->pickField('email')->label('Your email');
-		$ui->pickField('bio')->renderAsTextarea()->readonly();
+		$options = (new FormOptions($schema))->postTo('/signup');
+		$options->pickField('email')->label('Your email');
+		$options->pickField('bio')->renderAsTextarea()->readonly();
 
 		$this->assertSame([
 			'method' => 'post',
@@ -33,16 +33,16 @@ final class UiOptionsTest extends TestCase
 				'email' => ['label' => 'Your email'],
 				'bio' => ['renderer' => 'textarea', 'readonly' => true],
 			],
-		], $ui->toArray());
+		], $options->toArray());
 	}
 
 	#[Test]
 	public function get_from_sets_method_and_action(): void
 	{
-		$ui = (new UiOptions(new Facade('search')))->getFrom('/search');
+		$options = (new FormOptions(new Facade('search')))->getFrom('/search');
 
-		$this->assertSame('get', $ui->toArray()['method']);
-		$this->assertSame('/search', $ui->toArray()['action']);
+		$this->assertSame('get', $options->toArray()['method']);
+		$this->assertSame('/search', $options->toArray()['action']);
 	}
 
 	#[Test]
@@ -50,7 +50,7 @@ final class UiOptionsTest extends TestCase
 	{
 		$this->expectException(\InvalidArgumentException::class);
 
-		(new UiOptions(new Facade('signup')))->pickField('nope');
+		(new FormOptions(new Facade('signup')))->pickField('nope');
 	}
 
 	#[Test]
@@ -61,8 +61,7 @@ final class UiOptionsTest extends TestCase
 
 		$this->expectException(\LogicException::class);
 
-		// Email fields only allow the Email renderer, not a dropdown.
-		(new UiOptions($schema))->pickField('email')->renderAsDropdown();
+		(new FormOptions($schema))->pickField('email')->renderAsDropdown();
 	}
 
 	#[Test]
