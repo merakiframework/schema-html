@@ -6,17 +6,16 @@ namespace Meraki\Schema\Html;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\Composite as CompositeField;
-use Nette\Utils\Html;
 
 /**
  * Renders a schema as an HTML <form>. Option resolution/defaults live in
  * {@see FormOptionResolver} and validation copy in {@see ValidationMessages};
- * elements are built with nette/utils Html so attribute types (booleans, null)
+ * elements are built with {@see Element} so attribute types (booleans, null)
  * are handled natively.
  */
 class FormRenderer
 {
-	/** @var array<class-string, callable(Field, object): Html> */
+	/** @var array<class-string, callable(Field, object): Element> */
 	private array $fieldRenderers = [];
 
 	private readonly FormOptionResolver $resolver;
@@ -35,7 +34,7 @@ class FormRenderer
 
 	public function render(Facade $schema): string
 	{
-		$form = Html::el('form')
+		$form = Element::el('form')
 			->setAttribute('id', (string) $schema->name)
 			->setAttribute('novalidate', true)
 			->setAttribute('action', $this->resolver->action())
@@ -46,7 +45,7 @@ class FormRenderer
 		}
 
 		if ($this->resolver->hasMethod()) {
-			$form->addHtml(Html::el('input', [
+			$form->addHtml(Element::el('input', [
 				'type' => 'hidden',
 				'name' => '_method',
 				'value' => $this->resolver->method(),
@@ -57,13 +56,13 @@ class FormRenderer
 			$form->addHtml($this->renderField($field));
 		}
 
-		$form->addHtml(Html::el('button')->setAttribute('type', 'submit')->setText('Submit'));
+		$form->addHtml(Element::el('button')->setAttribute('type', 'submit')->setText('Submit'));
 
 		return (string) $form;
 	}
 
 	/**
-	 * @param callable(Field, object): Html $renderer
+	 * @param callable(Field, object): Element $renderer
 	 */
 	public function registerFieldRenderer(string $fqcn, callable $renderer): void
 	{
@@ -95,7 +94,7 @@ class FormRenderer
 		$this->registerFieldRenderer(Field\Variant::class,      $this->renderInputField(...));
 	}
 
-	private function renderField(Field $field, array $parentOptions = []): Html
+	private function renderField(Field $field, array $parentOptions = []): Element
 	{
 		$renderer = $this->fieldRenderers[$field::class] ?? null;
 
@@ -106,9 +105,9 @@ class FormRenderer
 		return $renderer($field, $this->resolver->resolve($field, $parentOptions));
 	}
 
-	private function renderInputField(Field $field, object $o): Html
+	private function renderInputField(Field $field, object $o): Element
 	{
-		$input = Html::el('input')
+		$input = Element::el('input')
 			->setAttribute('type', $o->renderer)
 			->setAttribute('id', $o->id)
 			->setAttribute('name', $o->input_name ?? $field->name->value);
@@ -119,11 +118,11 @@ class FormRenderer
 		return $this->wrap($o->type, $field, $o, $this->label($o), $input);
 	}
 
-	private function renderBooleanField(Field\Boolean $field, object $o): Html
+	private function renderBooleanField(Field\Boolean $field, object $o): Element
 	{
 		$resolved = $o->value ?? $field->resolvedValue->unwrap();
 
-		$input = Html::el('input')
+		$input = Element::el('input')
 			->setAttribute('type', 'checkbox')
 			->setAttribute('id', $o->id)
 			->setAttribute('name', $o->input_name ?? $field->name->value)
@@ -135,20 +134,20 @@ class FormRenderer
 		return $this->wrap('boolean', $field, $o, $this->label($o), $input);
 	}
 
-	private function renderTextField(Field\Text $field, object $o): Html
+	private function renderTextField(Field\Text $field, object $o): Element
 	{
 		$useTextarea = ($o->multiline ?? false) || $o->renderer === 'textarea';
 		$name = $o->input_name ?? $field->name->value;
 
 		if ($useTextarea) {
-			$element = Html::el('textarea')->setAttribute('id', $o->id)->setAttribute('name', $name);
+			$element = Element::el('textarea')->setAttribute('id', $o->id)->setAttribute('name', $name);
 			$value = $o->value ?? $field->resolvedValue->unwrap();
 
 			if (is_string($value) && $value !== '') {
 				$element->setText($value);
 			}
 		} else {
-			$element = Html::el('input')->setAttribute('type', 'text')->setAttribute('id', $o->id)->setAttribute('name', $name);
+			$element = Element::el('input')->setAttribute('type', 'text')->setAttribute('id', $o->id)->setAttribute('name', $name);
 			$this->applyValue($element, $field, $o);
 		}
 
@@ -157,18 +156,18 @@ class FormRenderer
 		return $this->wrap('text', $field, $o, $this->label($o), $element);
 	}
 
-	private function renderEnumField(Field\Enum $field, object $o): Html
+	private function renderEnumField(Field\Enum $field, object $o): Element
 	{
 		$name = $o->input_name ?? $field->name->value;
 		$optionConfigs = $o->options ?? [];
 
 		if ($o->renderer === 'dropdown') {
-			$select = Html::el('select')->setAttribute('id', $o->id)->setAttribute('name', $name)->setAttribute('autocomplete', 'none');
+			$select = Element::el('select')->setAttribute('id', $o->id)->setAttribute('name', $name)->setAttribute('autocomplete', 'none');
 			$this->applyGlobalAttributes($select, $field, $o);
 
 			foreach ($field->oneOf as $choice) {
 				$label = ($optionConfigs[$choice]['label'] ?? null) ?? $choice;
-				$option = Html::el('option')->setAttribute('value', $choice)->setText($label);
+				$option = Element::el('option')->setAttribute('value', $choice)->setText($label);
 				$option->setAttribute('selected', $field->defaultValue->unwrap() === $choice);
 				$select->addHtml($option);
 			}
@@ -177,12 +176,12 @@ class FormRenderer
 		}
 
 		// Radio buttons (default)
-		$fieldset = Html::el('fieldset')->addHtml(Html::el('legend')->setText($o->label));
+		$fieldset = Element::el('fieldset')->addHtml(Element::el('legend')->setText($o->label));
 
 		foreach ($field->oneOf as $choice) {
 			$label = ($optionConfigs[$choice]['label'] ?? null) ?? $choice;
 
-			$radio = Html::el('input')
+			$radio = Element::el('input')
 				->setAttribute('type', 'radio')
 				->setAttribute('id', $o->id)
 				->setAttribute('name', $name)
@@ -197,19 +196,19 @@ class FormRenderer
 				$radio->setAttribute('tabindex', '-1');
 			}
 
-			$fieldset->addHtml(Html::el('label')->setAttribute('for', $o->id)->setText($label));
+			$fieldset->addHtml(Element::el('label')->setAttribute('for', $o->id)->setText($label));
 			$fieldset->addHtml($radio);
 		}
 
 		return $this->wrap('enum', $field, $o, $fieldset);
 	}
 
-	private function renderCompositeField(CompositeField $field, object $o): Html
+	private function renderCompositeField(CompositeField $field, object $o): Element
 	{
-		$fieldset = Html::el('fieldset')
+		$fieldset = Element::el('fieldset')
 			->setAttribute('id', $o->id)
 			->setAttribute('class', 'composite-field ' . $o->label)
-			->addHtml(Html::el('legend')->setText($o->label));
+			->addHtml(Element::el('legend')->setText($o->label));
 
 		$parentInputName = $o->input_name ?? $field->name->value;
 		$parentValue = $field->resolvedValue->unwrap();
@@ -233,12 +232,12 @@ class FormRenderer
 		return $this->wrap($o->type, $field, $o, $fieldset);
 	}
 
-	private function label(object $o): Html
+	private function label(object $o): Element
 	{
-		return Html::el('label')->setAttribute('for', $o->id)->setText($o->label);
+		return Element::el('label')->setAttribute('for', $o->id)->setText($o->label);
 	}
 
-	private function applyGlobalAttributes(Html $element, Field $field, object $o): void
+	private function applyGlobalAttributes(Element $element, Field $field, object $o): void
 	{
 		$element->setAttribute('required', !$field->optional)
 			->setAttribute('readonly', (bool) $o->readonly)
@@ -251,7 +250,7 @@ class FormRenderer
 		}
 	}
 
-	private function applyValue(Html $element, Field $field, object $o): void
+	private function applyValue(Element $element, Field $field, object $o): void
 	{
 		if ($field instanceof Field\Password || $field instanceof Field\Passphrase) {
 			return;
@@ -266,9 +265,9 @@ class FormRenderer
 		$element->setAttribute('value', (string) $value);
 	}
 
-	private function wrap(string $type, Field $field, object $o, Html|string ...$children): Html
+	private function wrap(string $type, Field $field, object $o, Element|string ...$children): Element
 	{
-		$wrapper = Html::el('div')
+		$wrapper = Element::el('div')
 			->setAttribute('class', 'field' . ($o->hidden ? ' visually-hidden' : ''))
 			->setAttribute('data-type', $type)
 			->setAttribute('data-name', $field->name->value);
@@ -281,10 +280,10 @@ class FormRenderer
 			$wrapper->addHtml($child);
 		}
 
-		$errors = Html::el('div')->setAttribute('class', 'errors');
+		$errors = Element::el('div')->setAttribute('class', 'errors');
 
 		foreach ($this->messages->errorsFor($field) as $error) {
-			$errors->addHtml(Html::el('p')->setText($error));
+			$errors->addHtml(Element::el('p')->setText($error));
 		}
 
 		return $wrapper->addHtml($errors);
