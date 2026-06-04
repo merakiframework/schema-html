@@ -92,4 +92,19 @@ final class FormRendererTest extends TestCase
 		$this->assertStringContainsString('<div class="errors">', $html);
 		$this->assertStringContainsString('<p>', $html);
 	}
+
+	#[Test]
+	public function it_throws_an_exception_if_field_does_not_support_renderer(): void
+	{
+		$this->expectException(\RuntimeException::class);
+		$this->expectExceptionMessage('Renderer "text" is not compatible with field type: Meraki\Schema\Field\Boolean');
+
+		$schema = new Facade('signup');
+		$schema->addBooleanField('subscribe');
+
+		$options = (new FormOptions())->postTo('/signup');
+		$options->configureOptionsFor('subscribe')->renderAs(Renderer::Text); // text renderer not supported for boolean field
+
+		(new FormRenderer())->render($schema, $options);
+	}
 }

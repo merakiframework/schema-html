@@ -67,23 +67,14 @@ final class FormOptionResolver
 	{
 	}
 
-	public function against(FormOptions $formOptions): self
-	{
-		return new self($formOptions->toArray());
-	}
-
-	/**
-	 * @param array $parentOptions Options inherited from a parent composite field.
-	 */
-	public function resolve(Field $field, array $parentOptions = []): object
+	public function resolve(Field $field, array $fieldSpecificOptions = []): object
 	{
 		$fieldName = $field->name->value;
 
 		$options = array_merge(
 			self::GLOBAL_DEFAULTS,
 			self::DEFAULTS[$field::class] ?? [],
-			$parentOptions,
-			$this->formOptions['fields'][$fieldName] ?? [],
+			$fieldSpecificOptions,
 		);
 
 		$options['id']    ??= 'input-' . hash('sha256', $fieldName);

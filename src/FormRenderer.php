@@ -18,19 +18,16 @@ class FormRenderer
 	/** @var array<class-string, callable(Field, object): Element> */
 	private array $fieldRenderers = [];
 
-	private FormOptionResolver $resolver;
-
 	public function __construct(
-		private readonly ValidationMessageProvider $validationMessageProvider = new ValidationMessages()
+		private readonly ValidationMessageProvider $validationMessageProvider = new ValidationMessages(),
+		private readonly FormOptionResolver $optionResolver = new FormOptionResolver(),
 	) {
-		$this->resolver = new FormOptionResolver();
 		$this->registerDefaultFieldRenderers();
 	}
 
 	public function render(Facade $schema, ?FormOptions $options = null): string
 	{
 		$options ??= new FormOptions();
-		$this->resolver = $this->resolver->against($options);
 		$form = new Element('form', [
 			'id' => (string) $schema->name,
 			'novalidate' => true,
@@ -92,7 +89,7 @@ class FormRenderer
 		$this->registerFieldRenderer(Field\Variant::class,      $this->renderInputField(...));
 	}
 
-	private function renderField(Field $field, array $parentOptions = []): Element
+	private function renderField(Field $field, array $options = []): Element
 	{
 		$renderer = $this->fieldRenderers[$field::class] ?? null;
 
@@ -100,7 +97,22 @@ class FormRenderer
 			throw new \RuntimeException('No renderer registered for field type: ' . $field::class);
 		}
 
-		return $renderer($field, $this->resolver->resolve($field, $parentOptions));
+		$options = $this->optionResolver->resolve($field, $options);
+
+		$this->assertRendererIsCompatibleWithField(Renderer::from($options->renderer), $field);
+
+		return $renderer($field, $options);
+	}
+
+	private function assertRendererIsCompatibleWithField(Renderer $renderer, Field $field): void
+	{
+		if (!Renderer::isValidForField($renderer, $field)) {
+			throw new \RuntimeException(sprintf(
+				'Renderer "%s" is not compatible with field type: %s',
+				$renderer->value,
+				$field::class,
+			));
+		}
 	}
 
 	private function renderInputField(Field $field, object $o): Element

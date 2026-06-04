@@ -46,4 +46,9 @@ enum Renderer: string
 			default => [],
 		};
 	}
+
+	public static function isValidForField(Renderer $renderer, Field $field): bool
+	{
+		return in_array($renderer, self::validFor($field), true);
+	}
 }
