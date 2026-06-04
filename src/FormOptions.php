@@ -3,16 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html;
 
-use Meraki\Schema\Facade;
-use Meraki\Schema\Field;
-
 final class FormOptions implements Options
 {
-	private string $method = 'post';
-	private string $action = '';
-	private array $fieldConfigs = [];
+	public private(set) string $method = 'post';
+	public private(set) string $action = '';
+	public private(set) array $fields = [];
 
-	public function __construct(private readonly Facade $schema) {}
+	public function __construct() {}
 
 	public function postTo(string $url): self
 	{
@@ -28,15 +25,17 @@ final class FormOptions implements Options
 		return $this;
 	}
 
-	public function pickField(string $name): FieldOptions
+	public function configureOptionsFor(string $fieldName): FieldOptions
 	{
-		$field = $this->findField($name, $this->schema->fields);
+		return new FieldOptions($this, [$fieldName]);
+	}
 
-		if ($field === null) {
-			throw new \InvalidArgumentException("Field '{$name}' does not exist in schema '{$this->schema->name}'.");
-		}
-
-		return new FieldOptions($this, $field, [$name]);
+	/**
+	 * @alias configureOptionsFor
+	 */
+	public function configure(string $fieldName): FieldOptions
+	{
+		return $this->configureOptionsFor($fieldName);
 	}
 
 	public function toArray(): array
@@ -44,14 +43,14 @@ final class FormOptions implements Options
 		return [
 			'method' => $this->method,
 			'action' => $this->action,
-			'fields' => $this->fieldConfigs,
+			'fields' => $this->fields,
 		];
 	}
 
 	/** @internal */
 	public function setNestedValue(array $keys, mixed $value): void
 	{
-		$ref = &$this->fieldConfigs;
+		$ref = &$this->fields;
 		$lastKey = array_pop($keys);
 
 		foreach ($keys as $key) {
@@ -62,15 +61,5 @@ final class FormOptions implements Options
 		}
 
 		$ref[$lastKey] = $value;
-	}
-
-	private function findField(string $name, Field\Set $fields): ?Field
-	{
-		foreach ($fields as $field) {
-			if ($field->name->removePrefix()->value === $name) {
-				return $field;
-			}
-		}
-		return null;
 	}
 }

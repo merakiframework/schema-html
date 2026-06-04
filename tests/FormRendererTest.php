@@ -55,10 +55,10 @@ final class FormRendererTest extends TestCase
 		$schema = new Facade('signup');
 		$schema->addEmailAddressField('email');
 
-		$options = (new FormOptions($schema))->postTo('/signup');
-		$options->pickField('email')->label('Your email address');
+		$options = (new FormOptions())->postTo('/signup');
+		$options->configureOptionsFor('email')->label('Your email address');
 
-		$html = (new FormRenderer($options->toArray()))->render($schema);
+		$html = (new FormRenderer())->render($schema, $options);
 
 		$this->assertStringContainsString('action="/signup"', $html);
 		$this->assertStringContainsString('method="post"', $html);
@@ -71,7 +71,8 @@ final class FormRendererTest extends TestCase
 		$schema = new Facade('upload');
 		$schema->addFileField('resume');
 
-		$html = (new FormRenderer())->render($schema);
+		$options = (new FormOptions())->postTo('/upload');
+		$html = (new FormRenderer())->render($schema, $options);
 
 		$this->assertStringContainsString('enctype="multipart/form-data"', $html);
 		$this->assertStringContainsString('type="file"', $html);
@@ -85,7 +86,8 @@ final class FormRendererTest extends TestCase
 
 		$schema->validate(['full_name' => null]);
 
-		$html = (new FormRenderer())->render($schema);
+		$options = (new FormOptions())->postTo('/signup');
+		$html = (new FormRenderer())->render($schema, $options);
 
 		$this->assertStringContainsString('<div class="errors">', $html);
 		$this->assertStringContainsString('<p>', $html);

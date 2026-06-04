@@ -22,9 +22,9 @@ final class FormOptionsTest extends TestCase
 		$schema->addEmailAddressField('email');
 		$schema->addTextField('bio');
 
-		$options = (new FormOptions($schema))->postTo('/signup');
-		$options->pickField('email')->label('Your email');
-		$options->pickField('bio')->renderAsTextarea()->readonly();
+		$options = (new FormOptions())->postTo('/signup');
+		$options->configureOptionsFor('email')->label('Your email');
+		$options->configureOptionsFor('bio')->renderAsTextarea()->readonly();
 
 		$this->assertSame([
 			'method' => 'post',
@@ -39,39 +39,42 @@ final class FormOptionsTest extends TestCase
 	#[Test]
 	public function get_from_sets_method_and_action(): void
 	{
-		$options = (new FormOptions(new Facade('search')))->getFrom('/search');
+		$options = (new FormOptions())->getFrom('/search');
 
-		$this->assertSame('get', $options->toArray()['method']);
-		$this->assertSame('/search', $options->toArray()['action']);
+		$this->assertSame(
+			[
+				'method' => 'get',
+				'action' => '/search',
+				'fields' => [],
+			],
+			$options->toArray()
+		);
 	}
 
 	#[Test]
-	public function picking_an_unknown_field_throws(): void
-	{
-		$this->expectException(\InvalidArgumentException::class);
-
-		(new FormOptions(new Facade('signup')))->pickField('nope');
-	}
-
-	#[Test]
-	public function an_invalid_renderer_for_a_field_throws(): void
+	public function can_configure_composite_field_options(): void
 	{
 		$schema = new Facade('signup');
-		$schema->addEmailAddressField('email');
+		$schema->addMoneyField('price', ['AUD' => 2]);
 
-		$this->expectException(\LogicException::class);
+		$options = new FormOptions();
+		$options->configureOptionsFor('price')->configureOptionsFor('amount')->label('Enter Amount');
+		$options->configureOptionsFor('price')->configureOptionsFor('currency')->renderAsDropdown()->labelOption('AUD', 'A$');
 
-		(new FormOptions($schema))->pickField('email')->renderAsDropdown();
-	}
-
-	#[Test]
-	public function renderer_lists_valid_renderers_per_field_type(): void
-	{
-		$schema = new Facade('s');
-		$schema->addTextField('bio');
-
-		$valid = Renderer::validFor($schema->fields->getByName('bio'));
-
-		$this->assertSame([Renderer::Text, Renderer::Textarea], $valid);
+		$this->assertSame([
+			'method' => 'post',
+			'action' => '',
+			'fields' => [
+				'price' => [
+					'amount' => ['label' => 'Enter Amount'],
+					'currency' => [
+						'renderer' => 'dropdown',
+						'options' => [
+							'AUD' => ['label' => 'A$']
+						],
+					],
+				],
+			],
+		], $options->toArray());
 	}
 }

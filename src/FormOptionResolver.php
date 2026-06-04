@@ -67,6 +67,11 @@ final class FormOptionResolver
 	{
 	}
 
+	public function against(FormOptions $formOptions): self
+	{
+		return new self($formOptions->toArray());
+	}
+
 	public function method(): string
 	{
 		return $this->formOptions['method'] ?? 'post';

@@ -18,21 +18,19 @@ class FormRenderer
 	/** @var array<class-string, callable(Field, object): Element> */
 	private array $fieldRenderers = [];
 
-	private readonly FormOptionResolver $resolver;
+	private FormOptionResolver $resolver;
 
-	/**
-	 * @param array $options Form options (see FormOptions::toArray()).
-	 */
 	public function __construct(
-		public array $options = [],
 		private readonly ValidationMessageProvider $validationMessageProvider = new ValidationMessages()
 	) {
-		$this->resolver = new FormOptionResolver($options);
+		$this->resolver = new FormOptionResolver();
 		$this->registerDefaultFieldRenderers();
 	}
 
-	public function render(Facade $schema): string
+	public function render(Facade $schema, ?FormOptions $options = null): string
 	{
+		$options ??= new FormOptions();
+		$this->resolver = $this->resolver->against($options);
 		$form = Element::el('form')
 			->setAttribute('id', (string) $schema->name)
 			->setAttribute('novalidate', true)
@@ -52,7 +50,7 @@ class FormRenderer
 		}
 
 		foreach ($schema->fields as $field) {
-			$form->addHtml($this->renderField($field));
+			$form->addHtml($this->renderField($field, $options->fields[$field->name->value] ?? []));
 		}
 
 		$form->addHtml(Element::el('button')->setAttribute('type', 'submit')->setText('Submit'));
