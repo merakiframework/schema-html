@@ -26,29 +26,36 @@ final class Element implements Stringable
 	];
 
 	/** @var array<string, mixed> */
-	private array $attributes = [];
+	public private(set) array $attributes = [];
 
 	/** @var list<string> */
-	private array $children = [];
+	public private(set) array $children = [];
 
 	/**
 	 * @param array<string, mixed> $attributes
 	 */
-	public function __construct(private readonly string $tag, array $attributes = [])
+	public function __construct(
+		public readonly string $tag,
+		array $attributes = [],
+	) {
+		$this->setAttributes($attributes);
+	}
+
+	/**
+	 * Set multiple attributes at once, overwriting any existing values.
+	 */
+	public function setAttributes(array $attributes): self
 	{
 		foreach ($attributes as $name => $value) {
 			$this->setAttribute($name, $value);
 		}
+
+		return $this;
 	}
 
 	/**
-	 * @param array<string, mixed> $attributes
+	 * Set an attribute, overwriting any existing value.
 	 */
-	public static function el(string $tag, array $attributes = []): self
-	{
-		return new self($tag, $attributes);
-	}
-
 	public function setAttribute(string $name, mixed $value): self
 	{
 		$this->attributes[$name] = $value;
@@ -57,11 +64,83 @@ final class Element implements Stringable
 	}
 
 	/**
-	 * Appends already-safe markup (an Element or a raw HTML string).
+	 * Set attribute without overwriting an existing value.
 	 */
-	public function addHtml(self|string $html): self
+	public function addAttribute(string $name, mixed $value): self
 	{
-		$this->children[] = (string) $html;
+		if (!$this->hasAttribute($name)) {
+			$this->attributes[$name] = $value;
+		}
+
+		return $this;
+	}
+
+	/**
+	 * Set multiple attributes without overwriting existing values.
+	 */
+	public function addAttributes(array $attributes): self
+	{
+		foreach ($attributes as $name => $value) {
+			$this->addAttribute($name, $value);
+		}
+
+		return $this;
+	}
+
+	/**
+	 * Get an attribute's value, or null if it doesn't exist.
+	 *
+	 * Note that attributes with a value of `null` are treated as non-existent
+	 * and will be omitted from the rendered output.
+	 */
+	public function getAttribute(string $name, mixed $default = null): mixed
+	{
+		return $this->attributes[$name] ?? $default;
+	}
+
+	/**
+	 * Remove an attribute if it exists.
+	 */
+	public function removeAttribute(string $name): self
+	{
+		unset($this->attributes[$name]);
+
+		return $this;
+	}
+
+	/**
+	 * Check if an attribute exists.
+	 *
+	 * Note that attributes with a value of `null` or false are treated as non-existent.
+	 */
+	public function hasAttribute(string $name): bool
+	{
+		return isset($this->attributes[$name]) && $this->attributes[$name] !== null && $this->attributes[$name] !== false;
+	}
+
+	/**
+	 * Prepends an element or a literal HTML string (considered to be already-safe).
+	 */
+	public function prepend(self|string $child, self|string ...$children): self
+	{
+		$this->children = array_merge(
+			array_map(fn($c) => (string) $c, [$child, ...$children]),
+			$this->children,
+		);
+
+		return $this;
+	}
+
+	/**
+	 * Appends an element or a literal HTML string (considered to be already-safe).
+	 */
+	public function append(self|string $child, self|string ...$children): self
+	{
+		$this->children[] = (string) $child;
+
+		foreach ($children as $child) {
+			$this->children[] = (string) $child;
+		}
 
 		return $this;
 	}
