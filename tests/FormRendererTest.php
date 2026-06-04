@@ -42,7 +42,7 @@ final class FormRendererTest extends TestCase
 
 		$html = (new FormRenderer())->render($schema);
 
-		// required is present and bare (no ="...") thanks to nette Html
+		// required default true -> must appear as a bare attribute on the input
 		$this->assertMatchesRegularExpression('/<input[^>]*\srequired(\s|>)/', $html);
 		// readonly/disabled default false -> must NOT appear on the input
 		$this->assertStringNotContainsString('readonly', $html);
