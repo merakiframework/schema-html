@@ -31,27 +31,27 @@ final class ValidationMessages implements ValidationMessageProvider
 
 	public function messageFor(Field $field, ConstraintValidationResult $constraint): string
 	{
-		return match ((string) $field->type) {
-			'address'       => $this->forAddress($field, $constraint),
-			'boolean'       => 'Value must be a boolean',
-			'credit_card'   => $this->forCreditCard($field, $constraint),
-			'date'          => $this->forDate($field, $constraint),
-			'date_time'     => $this->forDateTime($field, $constraint),
-			'duration'      => $this->forDuration($field, $constraint),
-			'email_address' => $this->forEmailAddress($field, $constraint),
-			'enum'          => 'Value must be one of the allowed options',
-			'file'          => $this->forFile($field, $constraint),
-			'money'         => $this->forMoney($field, $constraint),
-			'name'          => $this->forName($field, $constraint),
-			'number'        => $this->forNumber($field, $constraint),
-			'passphrase'    => $this->forPassphrase($field, $constraint),
-			'password'      => $this->forPassword($field, $constraint),
-			'phone_number'  => $this->forPhoneNumber($field, $constraint),
-			'text'          => $this->forText($field, $constraint),
-			'time'          => $this->forTime($field, $constraint),
-			'uri'           => $this->forUri($field, $constraint),
-			'uuid'          => $this->forUuid($field, $constraint),
-			default         => 'Value is invalid',
+		return match (true) {
+			$field instanceof Field\Address      => $this->forAddress($field, $constraint),
+			$field instanceof Field\Boolean      => 'Value must be a boolean',
+			$field instanceof Field\CreditCard   => $this->forCreditCard($field, $constraint),
+			$field instanceof Field\DateTime     => $this->forDateTime($field, $constraint),
+			$field instanceof Field\Date         => $this->forDate($field, $constraint),
+			$field instanceof Field\Duration     => $this->forDuration($field, $constraint),
+			$field instanceof Field\EmailAddress => $this->forEmailAddress($field, $constraint),
+			$field instanceof Field\Enum         => 'Value must be one of the allowed options',
+			$field instanceof Field\File         => $this->forFile($field, $constraint),
+			$field instanceof Field\Money        => $this->forMoney($field, $constraint),
+			$field instanceof Field\Name         => $this->forName($field, $constraint),
+			$field instanceof Field\Number       => $this->forNumber($field, $constraint),
+			$field instanceof Field\Passphrase   => $this->forPassphrase($field, $constraint),
+			$field instanceof Field\Password     => $this->forPassword($field, $constraint),
+			$field instanceof Field\PhoneNumber  => $this->forPhoneNumber($field, $constraint),
+			$field instanceof Field\Text         => $this->forText($field, $constraint),
+			$field instanceof Field\Time         => $this->forTime($field, $constraint),
+			$field instanceof Field\Uri          => $this->forUri($field, $constraint),
+			$field instanceof Field\Uuid         => $this->forUuid($field, $constraint),
+			default                              => 'Value is invalid',
 		};
 	}
 
