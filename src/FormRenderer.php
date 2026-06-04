@@ -20,15 +20,14 @@ class FormRenderer
 
 	private readonly FormOptionResolver $resolver;
 
-	private readonly ValidationMessages $messages;
-
 	/**
 	 * @param array $options Form options (see FormOptions::toArray()).
 	 */
-	public function __construct(array $options = [])
-	{
+	public function __construct(
+		public array $options = [],
+		private readonly ValidationMessageProvider $validationMessageProvider = new ValidationMessages()
+	) {
 		$this->resolver = new FormOptionResolver($options);
-		$this->messages = new ValidationMessages();
 		$this->registerDefaultFieldRenderers();
 	}
 
@@ -282,7 +281,7 @@ class FormRenderer
 
 		$errors = Element::el('div')->setAttribute('class', 'errors');
 
-		foreach ($this->messages->errorsFor($field) as $error) {
+		foreach ($this->validationMessageProvider->errorsFor($field) as $error) {
 			$errors->addHtml(Element::el('p')->setText($error));
 		}
 

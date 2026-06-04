@@ -7,11 +7,7 @@ use Meraki\Schema\Field;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\ValidationStatus;
 
-/**
- * Produces human-readable validation error messages for a field's failed
- * constraints, based on the field's last validation run.
- */
-final class ValidationMessages
+final class ValidationMessages implements ValidationMessageProvider
 {
 	/**
 	 * @return string[]
