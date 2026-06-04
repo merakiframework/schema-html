@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1caf2ac10412c0c9f897a0c0b729654a",
+    "content-hash": "1bed924762475bbe64118fd90599a41b",
     "packages": [
         {
             "name": "brick/date-time",
@@ -141,10 +141,16 @@
         {
             "name": "meraki/schema",
             "version": "dev-main",
-            "dist": {
-                "type": "path",
-                "url": "../schema",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/merakiframework/schema.git",
                 "reference": "9bf96643b78638040adb834feb9ff506860d890e"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/merakiframework/schema/zipball/9bf96643b78638040adb834feb9ff506860d890e",
+                "reference": "9bf96643b78638040adb834feb9ff506860d890e",
+                "shasum": ""
             },
             "require": {
                 "brick/date-time": "^0.7.0",
@@ -154,22 +160,14 @@
             "require-dev": {
                 "phpunit/phpunit": "^11.3"
             },
+            "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-4": {
                     "Meraki\\Schema\\": "src/"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "Meraki\\Schema\\": "tests/"
-                }
-            },
-            "scripts": {
-                "test": [
-                    "phpunit"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -180,10 +178,11 @@
                 }
             ],
             "description": "A library that provides a flexible, UI-agnostic solution for defining, validating, and serializing form schemas that can be used across multiple rendering environments and formats.",
-            "transport-options": {
-                "symlink": true,
-                "relative": true
-            }
+            "support": {
+                "issues": "https://github.com/merakiframework/schema/issues",
+                "source": "https://github.com/merakiframework/schema/tree/main"
+            },
+            "time": "2026-06-03T11:53:18+00:00"
         },
         {
             "name": "psr/http-message",
