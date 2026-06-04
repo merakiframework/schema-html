@@ -5,18 +5,20 @@ namespace Meraki\Schema\Html;
 
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\ConstraintValidationResult;
-use Meraki\Schema\ValidationStatus;
+use Meraki\Schema\Field\ValidationResult as FieldValidationResult;
+use Meraki\Schema\ValidationResult;
 
 final class ValidationMessages implements ValidationMessageProvider
 {
 	/**
 	 * @return string[]
 	 */
-	public function errorsFor(Field $field): array
+	public function errorsFor(Field $field, ?ValidationResult $result = null): array
 	{
-		$result = $field->validationResult;
-
-		if (!$result || $result->status === ValidationStatus::Passed) {
+		// Only atomic field results carry constraint-level failures. A null result
+		// means the field was not validated; a composite result is handled via its
+		// individually-rendered sub-fields, so it produces no messages of its own.
+		if (!$result instanceof FieldValidationResult) {
 			return [];
 		}
 

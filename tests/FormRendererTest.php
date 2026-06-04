@@ -84,10 +84,10 @@ final class FormRendererTest extends TestCase
 		$schema = new Facade('signup');
 		$schema->addNameField('full_name')->minLengthOf(1);
 
-		$schema->validate(['full_name' => null]);
+		$result = $schema->validate(['full_name' => null]);
 
 		$options = (new FormOptions())->postTo('/signup');
-		$html = (new FormRenderer())->render($schema, $options);
+		$html = (new FormRenderer())->render($schema, $options, $result);
 
 		$this->assertStringContainsString('<div class="errors">', $html);
 		$this->assertStringContainsString('<p>', $html);

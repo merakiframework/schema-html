@@ -6,6 +6,9 @@ namespace Meraki\Schema\Html;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\Composite as CompositeField;
+use Meraki\Schema\Field\CompositeValidationResult;
+use Meraki\Schema\SchemaValidationResult;
+use Meraki\Schema\ValidationResult;
 
 /**
  * Renders a schema as an HTML <form>. Option resolution/defaults live in
@@ -18,6 +21,15 @@ class FormRenderer
 	/** @var array<class-string, callable(Field, object): Element> */
 	private array $fieldRenderers = [];
 
+	/**
+	 * Per-render lookup of field (full) name => that field's validation result,
+	 * populated for the duration of a single render() call. Lets wrap() surface
+	 * inline errors without the field having to store its own result.
+	 *
+	 * @var array<string, ValidationResult>
+	 */
+	private array $fieldResults = [];
+
 	public function __construct(
 		private readonly ValidationMessageProvider $validationMessageProvider = new ValidationMessages(),
 		private readonly FormOptionResolver $optionResolver = new FormOptionResolver(),
@@ -25,9 +37,10 @@ class FormRenderer
 		$this->registerDefaultFieldRenderers();
 	}
 
-	public function render(Facade $schema, ?FormOptions $options = null): string
+	public function render(Facade $schema, ?FormOptions $options = null, ?SchemaValidationResult $result = null): string
 	{
 		$options ??= new FormOptions();
+		$this->fieldResults = $this->indexResults($result);
 		$form = new Element('form', [
 			'id' => (string) $schema->name,
 			'novalidate' => true,
@@ -298,12 +311,44 @@ class FormRenderer
 		}
 
 		$errors = new Element('div', ['class' => 'errors']);
+		$result = $this->fieldResults[$field->name->value] ?? null;
 
-		foreach ($this->validationMessageProvider->errorsFor($field) as $error) {
+		foreach ($this->validationMessageProvider->errorsFor($field, $result) as $error) {
 			$errors->append(new Element('p')->setText($error));
 		}
 
 		return $wrapper->append($errors);
+	}
+
+	/**
+	 * Flattens a schema validation result into a (full) field-name => result map,
+	 * including composite sub-field results so each rendered field can find its own.
+	 *
+	 * @return array<string, ValidationResult>
+	 */
+	private function indexResults(?SchemaValidationResult $result): array
+	{
+		if ($result === null) {
+			return [];
+		}
+
+		$index = [];
+
+		foreach ($result as $fieldResult) {
+			if ($fieldResult instanceof CompositeValidationResult) {
+				$index[$fieldResult->composite->name->value] = $fieldResult;
+
+				foreach ($fieldResult as $subResult) {
+					$index[$subResult->field->name->value] = $subResult;
+				}
+
+				continue;
+			}
+
+			$index[$fieldResult->field->name->value] = $fieldResult;
+		}
+
+		return $index;
 	}
 
 	private function hasFileField(Facade $schema): bool

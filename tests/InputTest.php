@@ -155,6 +155,6 @@ final class InputTest extends TestCase
 
 		$result = $schema->validate($input->toArray());
 
-		$this->assertFalse($result->failed());
+		$this->assertFalse($result->anyFailed());
 	}
 }

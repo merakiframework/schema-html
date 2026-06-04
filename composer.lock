@@ -144,12 +144,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/merakiframework/schema.git",
-                "reference": "9bf96643b78638040adb834feb9ff506860d890e"
+                "reference": "25326c64d5ec4dfafb486ecc2aeb04bad6ee305b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/merakiframework/schema/zipball/9bf96643b78638040adb834feb9ff506860d890e",
-                "reference": "9bf96643b78638040adb834feb9ff506860d890e",
+                "url": "https://api.github.com/repos/merakiframework/schema/zipball/25326c64d5ec4dfafb486ecc2aeb04bad6ee305b",
+                "reference": "25326c64d5ec4dfafb486ecc2aeb04bad6ee305b",
                 "shasum": ""
             },
             "require": {
@@ -182,7 +182,7 @@
                 "issues": "https://github.com/merakiframework/schema/issues",
                 "source": "https://github.com/merakiframework/schema/tree/main"
             },
-            "time": "2026-06-03T11:53:18+00:00"
+            "time": "2026-06-04T21:42:29+00:00"
         },
         {
             "name": "psr/http-message",
