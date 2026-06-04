@@ -72,21 +72,6 @@ final class FormOptionResolver
 		return new self($formOptions->toArray());
 	}
 
-	public function method(): string
-	{
-		return $this->formOptions['method'] ?? 'post';
-	}
-
-	public function action(): string
-	{
-		return $this->formOptions['action'] ?? '';
-	}
-
-	public function hasMethod(): bool
-	{
-		return isset($this->formOptions['method']);
-	}
-
 	/**
 	 * @param array $parentOptions Options inherited from a parent composite field.
 	 */

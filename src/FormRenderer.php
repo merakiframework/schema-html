@@ -34,19 +34,19 @@ class FormRenderer
 		$form = new Element('form', [
 			'id' => (string) $schema->name,
 			'novalidate' => true,
-			'action' => $this->resolver->action(),
-			'method' => $this->resolver->method(),
+			'action' => $options->action,
+			'method' => $options->method,
 		]);
 
 		if ($this->hasFileField($schema)) {
 			$form->setAttribute('enctype', 'multipart/form-data');
 		}
 
-		if ($this->resolver->hasMethod()) {
+		if ($options->method !== 'post') {
 			$form->append(new Element('input', [
 				'type' => 'hidden',
 				'name' => '_method',
-				'value' => $this->resolver->method(),
+				'value' => $options->method,
 			]));
 		}
 
