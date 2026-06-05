@@ -7,6 +7,7 @@ use Meraki\Schema\Field;
 
 enum Renderer: string
 {
+	case Composite = 'composite';
 	case Text = 'text';
 	case Textarea = 'textarea';
 	case Email = 'email';
@@ -26,6 +27,7 @@ enum Renderer: string
 	public static function validFor(Field $field): array
 	{
 		return match (true) {
+			$field instanceof Field\Composite => [self::Composite],
 			$field instanceof Field\Text => [self::Text, self::Textarea],
 			$field instanceof Field\Enum => [self::Radio, self::Dropdown],
 			$field instanceof Field\Boolean => [self::Checkbox],
