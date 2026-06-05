@@ -18,6 +18,13 @@ final class FormOptions implements Options
 		return $this;
 	}
 
+	public function putTo(string $url): self
+	{
+		$this->method = 'put';
+		$this->action = $url;
+		return $this;
+	}
+
 	public function getFrom(string $url): self
 	{
 		$this->method = 'get';
