@@ -32,7 +32,7 @@ enum Renderer: string
 			$field instanceof Field\Enum => [self::Radio, self::Dropdown],
 			$field instanceof Field\Boolean => [self::Checkbox],
 			$field instanceof Field\EmailAddress => [self::Email],
-			$field instanceof Field\Number => [self::Number],
+			$field instanceof Field\Number => [self::Number, self::Text],
 			$field instanceof Field\PhoneNumber => [self::Tel],
 			$field instanceof Field\Uri => [self::Url],
 			$field instanceof Field\Date => [self::Date],
