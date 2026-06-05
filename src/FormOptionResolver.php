@@ -23,6 +23,7 @@ final class FormOptionResolver
 				'postcode' => ['label' => 'Postcode', 'renderer' => 'text'],
 				'country'  => ['label' => 'Country',  'renderer' => 'text'],
 			],
+			'renderer' => 'composite',
 		],
 		Field\Boolean::class => ['renderer' => 'checkbox'],
 		Field\Composite::class => ['renderer' => 'composite'],
