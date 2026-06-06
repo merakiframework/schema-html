@@ -170,9 +170,13 @@ final class ValidationMessages implements ValidationMessageProvider
 	private function forPhoneNumber(Field $field, ConstraintValidationResult $constraint): string
 	{
 		return match ($constraint->name) {
-			'min'   => 'Phone number should be at least ' . $field->{$constraint->name} . ' digits long',
-			'max'   => 'Phone number cannot be more than ' . $field->{$constraint->name} . ' digits long',
-			default => 'A phone number must begin with a plus sign followed by digits and may contain spaces, parentheses, dashes, and periods',
+			'allowedCountries' => 'Enter a phone number from: ' . implode(', ', $field->allowed),
+			'numberType'       => match ($field->allowedType) {
+				\Meraki\Schema\Field\PhoneNumber\Type::Mobile    => 'Enter a mobile phone number',
+				\Meraki\Schema\Field\PhoneNumber\Type::FixedLine => 'Enter a landline phone number',
+				default                                          => 'Enter a mobile or landline phone number',
+			},
+			default => 'Enter a valid phone number',
 		};
 	}
 

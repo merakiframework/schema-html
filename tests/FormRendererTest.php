@@ -94,6 +94,21 @@ final class FormRendererTest extends TestCase
 	}
 
 	#[Test]
+	public function it_renders_a_phone_number_country_error(): void
+	{
+		$schema = new Facade('contact');
+		$schema->addPhoneNumberField('phone', ['AU']);
+
+		// A valid US number, but the field only allows AU.
+		$result = $schema->validate(['phone' => '+12015550123']);
+
+		$options = (new FormOptions())->postTo('/contact');
+		$html = (new FormRenderer())->render($schema, $options, $result);
+
+		$this->assertStringContainsString('Enter a phone number from: AU', $html);
+	}
+
+	#[Test]
 	public function it_throws_an_exception_if_field_does_not_support_renderer(): void
 	{
 		$this->expectException(\RuntimeException::class);
