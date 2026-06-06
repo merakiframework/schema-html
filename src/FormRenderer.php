@@ -45,7 +45,7 @@ class FormRenderer
 			'id' => (string) $schema->name,
 			'novalidate' => true,
 			'action' => $options->action,
-			'method' => $options->method,
+			'method' => $options->method !== 'get' ? 'post' : 'get', // HTML forms only support GET and POST, so we use POST with a hidden _method field for PUT, PATCH, DELETE, etc.
 		]);
 
 		if ($this->hasFileField($schema)) {
