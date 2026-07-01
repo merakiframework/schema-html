@@ -122,4 +122,150 @@ final class FormRendererTest extends TestCase
 
 		(new FormRenderer())->render($schema, $options);
 	}
+
+	#[Test]
+	public function an_enum_supports_three_render_modes(): void
+	{
+		$cases = [
+			['radiogroup', ['class="mf-radiogroup"', 'type="radio"']],
+			['buttongroup', ['class="mf-buttongroup"', 'type="radio"']],
+			['select', ['class="mf-select"', '<select']],
+		];
+
+		foreach ($cases as [$mode, $expected]) {
+			$schema = new Facade('signup');
+			$schema->addEnumField('plan', ['free', 'pro']);
+			$options = new FormOptions();
+			$field = $options->configureOptionsFor('plan');
+			match ($mode) {
+				'radiogroup' => $field->renderAsRadioGroup(),
+				'buttongroup' => $field->renderAsButtonGroup(),
+				'select' => $field->renderAsSelect(),
+			};
+
+			$html = (new FormRenderer())->render($schema, $options);
+
+			foreach ($expected as $needle) {
+				$this->assertStringContainsString($needle, $html);
+			}
+			$this->assertStringNotContainsString('<script', $html);
+		}
+	}
+
+	#[Test]
+	public function allow_adding_options_renders_a_datalist_combobox(): void
+	{
+		$schema = new Facade('booking');
+		$schema->addTextField('participant');
+
+		$options = new FormOptions();
+		$options->configureOptionsFor('participant')
+			->allowAddingOptions(['jordan' => 'Jordan Lee', 'sam' => 'Sam Okafor'], hint: 'Pick or add someone');
+
+		$html = (new FormRenderer())->render($schema, $options);
+
+		// one text input bound to a <datalist> of the suggestions; no JS
+		$this->assertMatchesRegularExpression('/<input[^>]*name="participant"[^>]*list="[^"]+"/', $html);
+		$this->assertStringContainsString('<datalist id="', $html);
+		$this->assertStringContainsString('<option value="jordan">Jordan Lee</option>', $html);
+		$this->assertStringContainsString('placeholder="Pick or add someone"', $html);
+		$this->assertStringNotContainsString('<script', $html);
+
+		// a brand-new typed value is accepted (free-text field)
+		$this->assertFalse($schema->validate(['participant' => 'Brand New Person'])->anyFailed());
+	}
+
+	#[Test]
+	public function an_enum_defaults_to_a_radio_group(): void
+	{
+		$schema = new Facade('signup');
+		$schema->addEnumField('plan', ['free', 'pro']);
+
+		$html = (new FormRenderer())->render($schema);
+
+		$this->assertStringContainsString('class="mf-radiogroup"', $html);
+		$this->assertStringContainsString('type="radio"', $html);
+	}
+
+	#[Test]
+	public function a_dropdown_without_a_selection_prepends_an_invalid_placeholder_option(): void
+	{
+		$schema = new Facade('signup');
+		$schema->addEnumField('plan', ['free', 'pro']);
+
+		$options = new FormOptions();
+		$options->configureOptionsFor('plan')->renderAsDropdown();
+
+		$html = (new FormRenderer())->render($schema, $options);
+
+		$this->assertStringContainsString(
+			'<option value="" disabled selected hidden>Please select an option</option>',
+			$html,
+		);
+		// The placeholder is prepended before the real options.
+		$this->assertStringContainsString('<option value="free">free</option>', $html);
+	}
+
+	#[Test]
+	public function a_dropdown_with_a_selected_value_renders_no_placeholder(): void
+	{
+		$schema = new Facade('signup');
+		$schema->addEnumField('plan', ['free', 'pro']);
+		$schema->input(['plan' => 'pro']); // simulate a prior selection surviving a round-trip
+
+		$options = new FormOptions();
+		$options->configureOptionsFor('plan')->renderAsDropdown();
+
+		$html = (new FormRenderer())->render($schema, $options);
+
+		$this->assertStringNotContainsString('Please select an option', $html);
+		$this->assertStringContainsString('<option value="pro" selected>pro</option>', $html);
+	}
+
+	#[Test]
+	public function a_dropdown_placeholder_text_can_be_customised_via_hint(): void
+	{
+		$schema = new Facade('signup');
+		$schema->addEnumField('plan', ['free', 'pro']);
+
+		$options = new FormOptions();
+		$options->configureOptionsFor('plan')->renderAsDropdown()->hint('Choose a plan');
+
+		$html = (new FormRenderer())->render($schema, $options);
+
+		$this->assertStringContainsString('>Choose a plan</option>', $html);
+	}
+
+	#[Test]
+	public function hint_sets_the_placeholder_attribute_on_a_text_input(): void
+	{
+		$schema = new Facade('contact');
+		$schema->addPhoneNumberField('phone');
+
+		$options = new FormOptions();
+		$options->configureOptionsFor('phone')->hint('e.g. 0412 345 678');
+
+		$html = (new FormRenderer())->render($schema, $options);
+
+		$this->assertStringContainsString('placeholder="e.g. 0412 345 678"', $html);
+	}
+
+	#[Test]
+	public function a_required_dropdown_left_unselected_fails_validation_and_shows_an_error(): void
+	{
+		$schema = new Facade('signup');
+		$schema->addEnumField('plan', ['free', 'pro']);
+
+		$result = $schema->validate(['plan' => '']); // empty submission for a required enum
+
+		$options = new FormOptions();
+		$options->configureOptionsFor('plan')->renderAsDropdown();
+
+		$html = (new FormRenderer())->render($schema, $options, $result);
+
+		$this->assertStringContainsString('<div class="errors">', $html);
+		$this->assertStringContainsString('<p>Value must be one of the allowed options</p>', $html);
+		// The empty submission re-shows the placeholder (nothing is selected).
+		$this->assertStringContainsString('<option value="" disabled selected hidden>', $html);
+	}
 }

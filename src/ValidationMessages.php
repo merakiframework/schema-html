@@ -35,7 +35,7 @@ final class ValidationMessages implements ValidationMessageProvider
 	{
 		return match (true) {
 			$field instanceof Field\Address      => $this->forAddress($field, $constraint),
-			$field instanceof Field\Boolean      => 'Value must be a boolean',
+			$field instanceof Field\Boolean      => $this->forBoolean($field, $constraint),
 			$field instanceof Field\CreditCard   => $this->forCreditCard($field, $constraint),
 			$field instanceof Field\DateTime     => $this->forDateTime($field, $constraint),
 			$field instanceof Field\Date         => $this->forDate($field, $constraint),
@@ -54,6 +54,14 @@ final class ValidationMessages implements ValidationMessageProvider
 			$field instanceof Field\Uri          => $this->forUri($field, $constraint),
 			$field instanceof Field\Uuid         => $this->forUuid($field, $constraint),
 			default                              => 'Value is invalid',
+		};
+	}
+
+	private function forBoolean(Field $field, ConstraintValidationResult $constraint): string
+	{
+		return match ($constraint->name) {
+			'accepted' => 'This must be accepted to continue',
+			default    => 'Value must be a boolean',
 		};
 	}
 

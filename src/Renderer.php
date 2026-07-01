@@ -21,6 +21,8 @@ enum Renderer: string
 	case File = 'file';
 	case Checkbox = 'checkbox';
 	case Radio = 'radio';
+	case RadioGroup = 'radiogroup';
+	case ButtonGroup = 'buttongroup';
 	case Dropdown = 'dropdown';
 
 	/** @return self[] */
@@ -29,7 +31,7 @@ enum Renderer: string
 		return match (true) {
 			$field instanceof Field\Composite => [self::Composite],
 			$field instanceof Field\Text => [self::Text, self::Textarea],
-			$field instanceof Field\Enum => [self::Radio, self::Dropdown],
+			$field instanceof Field\Enum => [self::Radio, self::RadioGroup, self::ButtonGroup, self::Dropdown],
 			$field instanceof Field\Boolean => [self::Checkbox],
 			$field instanceof Field\EmailAddress => [self::Email],
 			$field instanceof Field\Number => [self::Number, self::Text],
