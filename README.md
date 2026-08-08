@@ -18,17 +18,19 @@ $schema->addEmailAddressField('email');
 $schema->addBooleanField('subscribe')->makeOptional();
 
 // Optional: configure the form + per-field UI
-$options = (new FormOptions($schema))->postTo('/signup');
-$options->pickField('email')->label('Your email address');
+$options = (new FormOptions())->postTo('/signup');
+$options->configure('email')->label('Your email address');
 
-$html = (new FormRenderer($options->toArray()))->render($schema);
+$html = (new FormRenderer())->render($schema, $options);
 ```
 
-Render after validation to surface inline error messages:
+Pass a validation result back in to surface inline error messages, against the
+individual fields that failed:
 
 ```php
-$schema->validate($input);
-echo (new FormRenderer($options->toArray()))->render($schema);
+$result = $schema->validate($input);
+
+echo (new FormRenderer())->render($schema, $options, $result);
 ```
 
 ## Form options
@@ -36,10 +38,51 @@ echo (new FormRenderer($options->toArray()))->render($schema);
 `FormOptions` is a fluent builder producing the array the renderer consumes:
 
 - `postTo($url)` / `getFrom($url)` — form method + action.
-- `pickField($name)` → `FieldOptions`: `label()`, `renderAs(Renderer)`,
-  `renderAsDropdown()`, `renderAsTextarea()`, `readonly()`, `disabled()`,
-  `hidden()`, `withOption($value, $label)` (Enum), and `pickField()` for
-  composite sub-fields.
+- `configure($name)` (or `configureOptionsFor($name)`) → `FieldOptions`:
+  `label()`, `hint()`, `renderAs(Renderer)`, `renderAsDropdown()`,
+  `renderAsTextarea()`, `readonly()`, `disabled()`, `hidden()`,
+  `autocomplete()`, `labelOption($value, $label)` (Enum), and
+  `configureFor()` for composite sub-fields.
+
+### Autocomplete
+
+Every field emits the semantic `autocomplete` token a browser needs to autofill
+it — `email` for an email address, `tel` for a phone number, `cc-number` and
+`address-line1` for the relevant parts of a credit card or address — or nothing
+at all where no token is meaningful. A `Field\Text` gets its token from the
+composite it sits in, not from its own type.
+
+`autocomplete(false)` emits `autocomplete="off"` for anything a browser should
+not remember; passing a token string overrides the default outright:
+
+```php
+$options->configure('password')->autocomplete('new-password');
+$options->configure('one_time_code')->autocomplete(false);
+```
+
+### Addresses
+
+`Field\Address` gets a dedicated renderer that reads the countries the field
+allows and asks `commerceguys/addressing` how they describe an address. The core
+library deliberately holds none of this — what a country calls the thing in the
+`administrative_area` box is presentation, useless to a JSON serializer — so
+`AddressVocabulary` owns it here.
+
+- **Labels follow the country** when exactly one is allowed: Australia gets
+  "Suburb" and "State", Japan "Prefecture", the US "City" and "ZIP Code". With
+  several allowed, the label generalises ("Administrative Area") and the hint
+  carries the alternatives ("State or province").
+- **Dropdowns show names, submit codes** — "Queensland" for `QLD`, "Australia"
+  for `AU`. The administrative area is only a dropdown when one country is
+  allowed; with several, which subdivisions are valid depends on the country
+  chosen, so it stays a text input and the server checks it.
+- **Settled and unused parts are hidden.** A single allowed country settles
+  `country_code`, which is hidden but still submitted so the address never
+  serializes without it. Parts no allowed country uses are hidden too — Singapore
+  has no administrative area, Hong Kong no postal code.
+- **`pattern` and `inputmode`** are set on the postal code for a single allowed
+  country. `inputmode="numeric"` only where the postal code really is digits-only:
+  a numeric keyboard cannot type Canada's `K1A 0B1` or an Irish eircode.
 
 `Renderer` enumerates the allowed input renderers and validates them per field
 type via `Renderer::validFor($field)`.
@@ -78,10 +121,28 @@ $result = $schema->validate($input->toArray());
 
 `Input` is read-only.
 
+## Examples
+
+Runnable scripts live in [`examples/`](examples/) — each writes HTML to stdout,
+so redirect it to a file to open in a browser:
+
+- [`render.php`](examples/render.php) — a form, then the same form re-rendered
+  with inline validation errors.
+- [`booking.php`](examples/booking.php) — a repeatable collection of items.
+- [`multi-step.php`](examples/multi-step.php) — the wizard, split across steps.
+
 ## Local development
 
 `composer.json` links the sibling `../schema` checkout via a Composer path
-repository.
+repository, so local changes to `meraki/schema` are picked up immediately. This
+needs `"minimum-stability": "dev"`, because the linked checkout resolves as
+`dev-main` (aliased to `1.13.x-dev` by the core's `extra.branch-alias`).
+
+The url is written as a glob (`../{schema}`) on purpose. A plain `../schema`
+makes `composer update` fail outright when the sibling checkout is not there,
+which would break CI; a glob that matches nothing is simply skipped, so Composer
+falls back to the VCS repository below it and resolves `meraki/schema` from
+GitHub as before.
 
 ```
 composer install

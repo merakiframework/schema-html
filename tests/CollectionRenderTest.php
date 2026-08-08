@@ -94,15 +94,15 @@ final class CollectionRenderTest extends TestCase
 			$item->addAddressField('pickup');
 		})->minItems(1);
 		$schema->input(['lessons' => [['date' => '2026-01-01', 'pickup' => [
-			'street' => '1 King St', 'city' => 'Brisbane', 'state' => 'QLD', 'postcode' => '4000', 'country' => 'AU',
+			'line1' => '1 King St', 'locality' => 'Brisbane', 'administrative_area' => 'QLD', 'postal_code' => '4000', 'country_code' => 'AU',
 		]]]]);
 
 		$html = (new FormRenderer())->render($schema);
 
 		// the per-item composite renders with doubly-nested names and the item's value
-		$this->assertStringContainsString('name="lessons[0][pickup][street]"', $html);
+		$this->assertStringContainsString('name="lessons[0][pickup][line1]"', $html);
 		$this->assertStringContainsString('value="Brisbane"', $html);
 		// and a blank next item keeps the same nesting
-		$this->assertStringContainsString('name="lessons[1][pickup][postcode]"', $html);
+		$this->assertStringContainsString('name="lessons[1][pickup][postal_code]"', $html);
 	}
 }

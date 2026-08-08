@@ -56,6 +56,7 @@ class FormRenderer
 	public function __construct(
 		private readonly ValidationMessageProvider $validationMessageProvider = new ValidationMessages(),
 		private readonly FormOptionResolver $optionResolver = new FormOptionResolver(),
+		private readonly AddressVocabulary $addressVocabulary = new AddressVocabulary(),
 	) {
 		$this->registerDefaultFieldRenderers();
 	}
@@ -261,7 +262,7 @@ class FormRenderer
 
 	private function registerDefaultFieldRenderers(): void
 	{
-		$this->registerFieldRenderer(Field\Address::class,      $this->renderCompositeField(...));
+		$this->registerFieldRenderer(Field\Address::class,      $this->renderAddressField(...));
 		$this->registerFieldRenderer(Field\Boolean::class,      $this->renderBooleanField(...));
 		$this->registerFieldRenderer(Field\Collection::class,   $this->renderCollectionField(...));
 		$this->registerFieldRenderer(Field\Composite::class,    $this->renderCompositeField(...));
@@ -565,7 +566,9 @@ class FormRenderer
 
 		if ($o->renderer === 'dropdown') {
 			$customizable = (bool) ($o->customizable ?? false);
-			$select = new Element('select', ['id' => $o->id, 'name' => $name, 'autocomplete' => 'none']);
+			// 'autocomplete' is set by applyGlobalAttributes() below, from the field's
+			// resolved token ('none' was never a valid value for it).
+			$select = new Element('select', ['id' => $o->id, 'name' => $name]);
 
 			if ($customizable) {
 				$this->emittedStyledWidget = true;
@@ -697,6 +700,106 @@ class FormRenderer
 		}
 
 		return $choices;
+	}
+
+	/**
+	 * An address is a composite, rendered as one — but with each part's label, hint and
+	 * input attributes derived from the countries the field allows. Everything is written
+	 * into `$o->fields` as *defaults*, which renderCompositeField() merges beneath any
+	 * per-sub-field options the caller supplied, so a host can still override any of it.
+	 */
+	private function renderAddressField(Field\Address $field, object $o): Element
+	{
+		$countries = $field->allowed;
+		$determined = $field->determined();
+		$fields = (array) ($o->fields ?? []);
+
+		foreach ($field->fields as $subField) {
+			$local = $subField->name->removePrefix()->value;
+
+			$fields[$local] = array_merge(
+				$fields[$local] ?? [],
+				$this->addressPartOptions($subField, $local, $countries, in_array($local, $determined, true)),
+			);
+		}
+
+		$o->fields = $fields;
+
+		return $this->renderCompositeField($field, $o);
+	}
+
+	/**
+	 * @param array<string> $countries
+	 * @return array<string, mixed>
+	 */
+	private function addressPartOptions(Field $subField, string $local, array $countries, bool $isDetermined): array
+	{
+		$options = [];
+		$vocabulary = $this->addressVocabulary;
+
+		// The country and administrative area are enums once the whitelist closes their set.
+		// A dropdown is the only sane widget for them — an enum's default is a radio group,
+		// which would be 250 radios for the country list.
+		if ($subField instanceof Field\Enum) {
+			$options['renderer'] = 'dropdown';
+		}
+
+		if (($label = $vocabulary->labelFor($local, $countries)) !== null) {
+			$options['label'] = $label;
+		}
+
+		if (($hint = $vocabulary->hintFor($local, $countries)) !== null) {
+			$options['hint'] = $hint;
+		}
+
+		// A part the whitelist has already settled (the country, when only one is allowed)
+		// still has to be submitted, so it is hidden rather than dropped. So is a part none
+		// of the allowed countries even has — asking a Singaporean for a state is worse
+		// than not asking.
+		if ($isDetermined || !$vocabulary->isUsedByAny($local, $countries)) {
+			$options['hidden'] = true;
+		}
+
+		// Postcode rules belong to one country; with several allowed we cannot know which
+		// applies until the country is chosen, so the client-side hints are left off and
+		// the server-side constraint does the work.
+		if ($local === 'postal_code' && count($countries) === 1) {
+			$pattern = $vocabulary->postalCodePatternFor($countries[0]);
+
+			if ($pattern !== null) {
+				$options['pattern'] = $pattern;
+
+				if ($vocabulary->postalCodeIsNumeric($pattern)) {
+					$options['inputmode'] = 'numeric';
+				}
+			}
+		}
+
+		// Dropdowns submit codes, so give the options their proper names.
+		if ($local === 'country_code') {
+			$options['options'] = $this->optionLabels($vocabulary->countryNames());
+		}
+
+		if ($local === 'administrative_area' && count($countries) === 1) {
+			$options['options'] = $this->optionLabels($vocabulary->subdivisionNames($countries[0]));
+		}
+
+		return $options;
+	}
+
+	/**
+	 * @param array<string, string> $names code => name
+	 * @return array<string, array{label: string}>
+	 */
+	private function optionLabels(array $names): array
+	{
+		$options = [];
+
+		foreach ($names as $code => $name) {
+			$options[$code] = ['label' => $name];
+		}
+
+		return $options;
 	}
 
 	private function renderCompositeField(CompositeField $field, object $o): Element
@@ -896,6 +999,12 @@ class FormRenderer
 			'disabled' => (bool) $o->disabled,
 			'hidden' => (bool) $o->hidden,
 			'autofocus' => (bool) $o->autofocus,
+			// These three emit nothing when null: no token applies (see
+			// FormOptionResolver::autocompleteFor()), and no client-side input hints were
+			// asked for. Element skips null and false attributes.
+			'autocomplete' => $o->autocomplete,
+			'pattern' => $o->pattern ?? null,
+			'inputmode' => $o->inputmode ?? null,
 		]);
 
 		// If the field is hidden, disabled, or readonly, then prevent keyboard focus.

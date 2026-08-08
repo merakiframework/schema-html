@@ -33,6 +33,22 @@ final class ValidationMessages implements ValidationMessageProvider
 
 	public function messageFor(Field $field, ConstraintValidationResult $constraint): string
 	{
+		// A required field left empty fails its *type* check, because there is no value of
+		// the right type to find. Reporting that in terms of types ("A valid text must be a
+		// string") describes the mechanism rather than the problem.
+		if ($constraint->name === 'type' && !$field->hasValue()) {
+			return 'This is required';
+		}
+
+		// An address's constraints are reported against its sub-fields, which are plain
+		// Text/Enum fields — so they have to be recognised before the per-type dispatch
+		// below, which keys off bare constraint names and would fall through to a default.
+		$addressMessage = $this->forAddressPart($constraint);
+
+		if ($addressMessage !== null) {
+			return $addressMessage;
+		}
+
 		return match (true) {
 			$field instanceof Field\Address      => $this->forAddress($field, $constraint),
 			$field instanceof Field\Boolean      => $this->forBoolean($field, $constraint),
@@ -67,10 +83,32 @@ final class ValidationMessages implements ValidationMessageProvider
 
 	private function forAddress(Field $field, ConstraintValidationResult $constraint): string
 	{
-		return match ($constraint->name) {
-			'min'   => 'Value is too short: Expected at least ' . $field->{$constraint->name} . ' characters',
-			'max'   => 'Value is too long: Expected at most ' . $field->{$constraint->name} . ' characters',
-			default => 'A valid address must contain a street, suburb, state or territory, and postcode',
+		return 'This address is incomplete or not valid for the country selected';
+	}
+
+	/**
+	 * Messages for {@see \Meraki\Schema\Field\Address}'s own constraints, which are named
+	 * '{sub-field}.{constraint}' — e.g. 'billing.postal_code.format'. Returns null for
+	 * anything that is not one of them, so the caller falls through to its normal dispatch.
+	 *
+	 * The wording stays country-neutral on purpose: only the sub-field is available here,
+	 * not the address it belongs to, so there is no way to reach for the country's own term
+	 * ("postcode" vs "ZIP code") the way the renderer's labels do.
+	 */
+	private function forAddressPart(ConstraintValidationResult $constraint): ?string
+	{
+		$separator = strrpos($constraint->name, '.');
+
+		if ($separator === false) {
+			return null;
+		}
+
+		return match (substr($constraint->name, $separator + 1)) {
+			'visitable' => 'Enter a street address: a PO box or bag service is not somewhere that can be visited',
+			'format' => 'Enter a valid postal code for the country selected',
+			'allowed' => 'Choose one of the available options',
+			'required' => 'This is required for the country selected',
+			default => null,
 		};
 	}
 

@@ -81,6 +81,23 @@ final class FieldOptions implements Options
 		return $this;
 	}
 
+	/**
+	 * Turns browser autofill on or off for this field.
+	 *
+	 * On (the default) emits the semantic `autocomplete` token for the field's type — an
+	 * email field gets `email`, an address's parts get `address-line1`, `postal-code` and
+	 * so on — or nothing at all where no token is meaningful. Off emits
+	 * `autocomplete="off"`, for one-time codes and anything a browser should not remember.
+	 *
+	 * Pass a token string to override the default outright, e.g. `autocomplete('new-password')`
+	 * on a sign-up form's password field.
+	 */
+	public function autocomplete(bool|string $enabled = true): self
+	{
+		$this->root->setNestedValue([...$this->path, 'autocomplete'], $enabled);
+		return $this;
+	}
+
 	public function readonly(): self
 	{
 		$this->root->setNestedValue([...$this->path, 'readonly'], true);
