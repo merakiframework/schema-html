@@ -205,6 +205,13 @@ class FormRenderer
 			]));
 		}
 
+		// GET forms are excluded: the token would land in the query string, leaking
+		// through Referer headers, logs and history, and a GET should not be changing
+		// state in the first place.
+		if ($options->csrf !== null && $options->method !== 'get') {
+			$form->append($options->csrf->hiddenInput());
+		}
+
 		return $form;
 	}
 

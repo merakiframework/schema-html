@@ -46,6 +46,12 @@ final class Form
 		// optional field submitted empty is skipped, not validated as a bad value.
 		$request = (new Input($request))->toArray();
 
+		// Before anything reads the request: a forged submission must not reach the
+		// state store, the schema, or the host's completion handler.
+		$this->options->csrf?->verify($request);
+
+		$request = $this->stripFormMetadata($request);
+
 		$rawAction = $this->rawAction($request);
 
 		// A dialog collection's blank "add" row rides in with every submission. It is only
@@ -105,6 +111,30 @@ final class Form
 		return Result::render(
 			$this->renderer->render($this->schema, $this->options, $this->store, $state->movedTo($target)),
 		);
+	}
+
+	/**
+	 * Drops the transport-level inputs the form shell adds, so they never reach the
+	 * state store.
+	 *
+	 * Both {@see HiddenFieldStore::load()} and {@see SessionStore::load()} treat the
+	 * whole request minus `__wizard` as wizard data, so anything left here would be
+	 * (a) re-emitted as a *stale* hidden input by carry(), shadowing the fresh one
+	 * that startForm() writes on the next step, and (b) handed to the host inside
+	 * Result::completed(). Neither is field data, so neither belongs in the state.
+	 *
+	 * @param array<string, mixed> $request
+	 * @return array<string, mixed>
+	 */
+	private function stripFormMetadata(array $request): array
+	{
+		if ($this->options->csrf !== null) {
+			unset($request[$this->options->csrf->fieldName]);
+		}
+
+		unset($request['_method']);
+
+		return $request;
 	}
 
 	/**

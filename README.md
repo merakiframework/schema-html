@@ -121,6 +121,74 @@ $result = $schema->validate($input->toArray());
 
 `Input` is read-only.
 
+## CSRF protection
+
+Off by default. `withCsrfProtection()` renders a hidden token into the form — for
+both single-page forms and the wizard, since both open the form the same way:
+
+```php
+use Meraki\Schema\Html\Csrf\SynchroniserToken;
+use Meraki\Schema\Html\Wizard\SessionStorage;
+
+session_start();
+
+$options = (new FormOptions())
+    ->postTo('/signup')
+    ->withCsrfProtection(new SynchroniserToken(new SessionStorage()));
+```
+
+Two providers ship with the library:
+
+- **`SynchroniserToken`** — a random token held in `Storage` (the same
+  abstraction the wizard's `SessionStore` uses) and mirrored into the form. Use
+  it whenever you have a session. `issue()` is idempotent, so re-rendering never
+  invalidates a token another tab is holding; call `rotate()` after a login or
+  other privilege change.
+- **`SignedToken`** — an expiring HMAC-signed token verified by recomputing the
+  signature, so nothing is stored server-side. Pairs with `HiddenFieldStore`,
+  which also runs the wizard without a session.
+
+  ```php
+  new SignedToken(new Signer($secret), binding: session_id(), ttl: 7200);
+  ```
+
+  The `binding` is required, and it is what makes the token CSRF protection
+  rather than a formality: it must be a per-visitor value an attacker can
+  neither read nor set (`session_id()`, or a random value in a `SameSite=Lax`,
+  `HttpOnly` cookie). Without one, every visitor gets a validly-signed token and
+  an attacker simply uses their own.
+
+Hosts that already have CSRF machinery should implement `Csrf\TokenProvider`
+over it and pass that instead.
+
+**Verifying.** The wizard verifies for you — `Wizard\Form::handle()` throws
+`Csrf\TokenMismatch` before the submission reaches the state store, the schema,
+or your completion handler. Single-page forms have no request side in this
+library, so verify them yourself before validating:
+
+```php
+$options->csrf?->verify($_POST);          // throws Csrf\TokenMismatch
+$result = $schema->validate($input->toArray());
+```
+
+`TokenMismatch` is an exception rather than a validation failure because it is
+not user-correctable: answer 403 (or 419), don't re-render the form.
+
+### Signing carried wizard state
+
+`HiddenFieldStore` re-emits every prior answer as a hidden input, and nothing
+stops the client rewriting one on a later round-trip to get past validation a
+step already applied. `SignedHiddenFieldStore` wraps it and signs the carried
+names and values, throwing `Wizard\StateTampered` if either changed:
+
+```php
+$store = new SignedHiddenFieldStore(new Signer($secret));
+$form = new Wizard\Form($schema, $options, $store);
+```
+
+This closes *tampering*, not *disclosure* — the answers are still readable in
+the page source. Use `SessionStore` when they must not reach the client at all.
+
 ## Examples
 
 Runnable scripts live in [`examples/`](examples/) — each writes HTML to stdout,
@@ -130,6 +198,9 @@ so redirect it to a file to open in a browser:
   with inline validation errors.
 - [`booking.php`](examples/booking.php) — a repeatable collection of items.
 - [`multi-step.php`](examples/multi-step.php) — the wizard, split across steps.
+- [`csrf.php`](examples/csrf.php) — a token-protected form and the verify-on-POST
+  branch. Serve it (`php -S localhost:8000 -t examples`) rather than redirecting,
+  since it needs a session and a real submission.
 
 ## Local development
 

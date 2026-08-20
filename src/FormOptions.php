@@ -22,6 +22,9 @@ final class FormOptions implements Options
 
 	public private(set) bool $defaultStyles = true;
 
+	/** CSRF protection, off unless {@see self::withCsrfProtection()} turns it on. */
+	public private(set) ?Csrf\Guard $csrf = null;
+
 	/**
 	 * In a stepped flow, skip past any group whose every field is currently hidden by a
 	 * matched rule (nothing to fill in). On by default; {@see self::showAllSteps()} keeps
@@ -144,6 +147,26 @@ final class FormOptions implements Options
 	public function behaviours(ConditionUiBehaviour ...$behaviours): self
 	{
 		$this->behaviours = $behaviours;
+		return $this;
+	}
+
+	/**
+	 * Protect this form against cross-site request forgery: a hidden token input is
+	 * rendered into the form, and {@see Wizard\Form::handle()} rejects any step
+	 * submission that does not carry it back.
+	 *
+	 * Single-page forms have no request side in this library, so the host verifies
+	 * those itself before validating:
+	 *
+	 *     $options->csrf?->verify($_POST);
+	 *
+	 * Pass {@see Csrf\SynchroniserToken} when you have a session,
+	 * {@see Csrf\SignedToken} when you do not, or your own {@see Csrf\TokenProvider}
+	 * to defer to the host framework's existing CSRF machinery.
+	 */
+	public function withCsrfProtection(Csrf\TokenProvider $provider, string $fieldName = '_token'): self
+	{
+		$this->csrf = new Csrf\Guard($provider, $fieldName);
 		return $this;
 	}
 

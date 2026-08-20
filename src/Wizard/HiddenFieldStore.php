@@ -39,10 +39,15 @@ final class HiddenFieldStore implements StateStore
 	 * ['address' => ['street' => 'x']] => ['address[street]' => 'x']. Empty and
 	 * null values are dropped (nothing to carry).
 	 *
+	 * Public so {@see SignedHiddenFieldStore} can sign and re-derive exactly the
+	 * same name/value pairs this store emits — two separate implementations would
+	 * silently invalidate every signature the moment they drifted apart.
+	 *
+	 * @internal
 	 * @param array<string, mixed> $data
 	 * @return array<string, string>
 	 */
-	private function flatten(array $data, string $prefix = ''): array
+	public function flatten(array $data, string $prefix = ''): array
 	{
 		$flat = [];
 
