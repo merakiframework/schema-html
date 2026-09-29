@@ -22,6 +22,12 @@ final class DefaultTheme implements Theme
 		$this->renderers = $renderers ?? self::defaultRenderers();
 	}
 
+	/** The stock look, as a starting point for `withWidgets()` / `withRenderer()`. */
+	public static function create(): self
+	{
+		return new self();
+	}
+
 	public function widgets(): Widgets
 	{
 		return $this->widgets;
