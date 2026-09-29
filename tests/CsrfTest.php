@@ -9,6 +9,7 @@ use Meraki\Schema\Html\Csrf\SignedToken;
 use Meraki\Schema\Html\Csrf\SynchroniserToken;
 use Meraki\Schema\Html\Csrf\TokenMismatch;
 use Meraki\Schema\Html\Csrf\TokenProvider;
+use Meraki\Schema\Html\Support\Forms;
 use Meraki\Schema\Html\Wizard\InMemoryStorage;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -30,7 +31,7 @@ final class CsrfTest extends TestCase
 	private function schema(): Facade
 	{
 		$schema = new Facade('signup');
-		$schema->addNameField('name');
+		$schema->add($schema->createNameField('name'));
 
 		return $schema;
 	}
@@ -48,7 +49,7 @@ final class CsrfTest extends TestCase
 	#[Test]
 	public function it_renders_no_token_input_by_default(): void
 	{
-		$html = (new FormRenderer())->render($this->schema());
+		$html = (new FormRenderer())->render($this->schema(), Forms::options());
 
 		$this->assertStringNotContainsString('_token', $html);
 	}
@@ -57,7 +58,7 @@ final class CsrfTest extends TestCase
 	public function it_renders_a_hidden_token_input_when_protection_is_enabled(): void
 	{
 		$provider = $this->synchroniser();
-		$options = (new FormOptions())->withCsrfProtection($provider);
+		$options = Forms::options()->withCsrfProtection($provider);
 
 		$html = (new FormRenderer())->render($this->schema(), $options);
 
@@ -70,7 +71,7 @@ final class CsrfTest extends TestCase
 	#[Test]
 	public function it_uses_the_configured_field_name(): void
 	{
-		$options = (new FormOptions())->withCsrfProtection($this->synchroniser(), 'csrf_token');
+		$options = Forms::options()->withCsrfProtection($this->synchroniser(), 'csrf_token');
 
 		$html = (new FormRenderer())->render($this->schema(), $options);
 
@@ -81,7 +82,7 @@ final class CsrfTest extends TestCase
 	#[Test]
 	public function it_omits_the_token_from_get_forms(): void
 	{
-		$options = (new FormOptions())->getFrom('/search')->withCsrfProtection($this->synchroniser());
+		$options = Forms::options()->getFrom('/search')->withCsrfProtection($this->synchroniser());
 
 		$html = (new FormRenderer())->render($this->schema(), $options);
 
@@ -91,7 +92,7 @@ final class CsrfTest extends TestCase
 	#[Test]
 	public function it_still_protects_non_post_methods_that_tunnel_through_post(): void
 	{
-		$options = (new FormOptions())->putTo('/account')->withCsrfProtection($this->synchroniser());
+		$options = Forms::options()->putTo('/account')->withCsrfProtection($this->synchroniser());
 
 		$html = (new FormRenderer())->render($this->schema(), $options);
 
@@ -248,7 +249,7 @@ final class CsrfTest extends TestCase
 			}
 		};
 
-		$options = (new FormOptions())->withCsrfProtection($provider);
+		$options = Forms::options()->withCsrfProtection($provider);
 		$html = (new FormRenderer())->render($this->schema(), $options);
 
 		$this->assertStringContainsString('name="_token" value="framework-issued"', $html);
@@ -270,7 +271,7 @@ final class CsrfTest extends TestCase
 			}
 		};
 
-		$html = (new FormRenderer())->render($this->schema(), (new FormOptions())->withCsrfProtection($provider));
+		$html = (new FormRenderer())->render($this->schema(), Forms::options()->withCsrfProtection($provider));
 
 		$this->assertStringNotContainsString('<script>', $html);
 		$this->assertStringContainsString('&quot;&gt;&lt;script&gt;', $html);

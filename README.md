@@ -1,125 +1,226 @@
 # meraki/schema-html
 
-Render a [`meraki/schema`](https://github.com/merakiframework/schema) as an HTML form.
+Render a [`meraki/schema`](https://github.com/merakiframework/schema) as an HTML form, turn
+the submission back into what the schema validates, and run multi-step forms — with no
+JavaScript.
 
 Keeps HTML/form-rendering concerns out of the core schema domain. Reads only
-`meraki/schema`'s public API.
+`meraki/schema`'s public API. Requires PHP 8.5 and `meraki/schema` 2.0.
 
 ## Usage
 
 ```php
 use Meraki\Schema\Facade;
-use Meraki\Schema\Html\FormRenderer;
 use Meraki\Schema\Html\FormOptions;
+use Meraki\Schema\Html\FormRenderer;
+use Meraki\Schema\Message\Mf2\Mf2Provider;
 
 $schema = new Facade('signup');
-$schema->addNameField('full_name')->minLengthOf(1)->maxLengthOf(255);
-$schema->addEmailAddressField('email');
-$schema->addBooleanField('subscribe')->makeOptional();
+$schema->add(
+    $schema->createNameField('full_name'),
+    $schema->createEmailAddressField('email'),
+    $schema->createBooleanField('subscribe')->makeOptional(),
+);
 
-// Optional: configure the form + per-field UI
-$options = (new FormOptions())->postTo('/signup');
+$options = (new FormOptions())
+    ->postTo('/signup')
+    ->withMessages('en-AU', Mf2Provider::fromPackage('meraki/schema-language-english'));
+
 $options->configure('email')->label('Your email address');
 
-$html = (new FormRenderer())->render($schema, $options);
+echo (new FormRenderer())->render($schema, $options);
 ```
 
-Pass a validation result back in to surface inline error messages, against the
-individual fields that failed:
-
-```php
-$result = $schema->validate($input);
-
-echo (new FormRenderer())->render($schema, $options, $result);
-```
-
-## Form options
-
-`FormOptions` is a fluent builder producing the array the renderer consumes:
-
-- `postTo($url)` / `getFrom($url)` — form method + action.
-- `configure($name)` (or `configureOptionsFor($name)`) → `FieldOptions`:
-  `label()`, `hint()`, `renderAs(Renderer)`, `renderAsDropdown()`,
-  `renderAsTextarea()`, `readonly()`, `disabled()`, `hidden()`,
-  `autocomplete()`, `labelOption($value, $label)` (Enum), and
-  `configureFor()` for composite sub-fields.
-
-### Autocomplete
-
-Every field emits the semantic `autocomplete` token a browser needs to autofill
-it — `email` for an email address, `tel` for a phone number, `cc-number` and
-`address-line1` for the relevant parts of a credit card or address — or nothing
-at all where no token is meaningful. A `Field\Text` gets its token from the
-composite it sits in, not from its own type.
-
-`autocomplete(false)` emits `autocomplete="off"` for anything a browser should
-not remember; passing a token string overrides the default outright:
-
-```php
-$options->configure('password')->autocomplete('new-password');
-$options->configure('one_time_code')->autocomplete(false);
-```
-
-### Addresses
-
-`Field\Address` gets a dedicated renderer that reads the countries the field
-allows and asks `commerceguys/addressing` how they describe an address. The core
-library deliberately holds none of this — what a country calls the thing in the
-`administrative_area` box is presentation, useless to a JSON serializer — so
-`AddressVocabulary` owns it here.
-
-- **Labels follow the country** when exactly one is allowed: Australia gets
-  "Suburb" and "State", Japan "Prefecture", the US "City" and "ZIP Code". With
-  several allowed, the label generalises ("Administrative Area") and the hint
-  carries the alternatives ("State or province").
-- **Dropdowns show names, submit codes** — "Queensland" for `QLD`, "Australia"
-  for `AU`. The administrative area is only a dropdown when one country is
-  allowed; with several, which subdivisions are valid depends on the country
-  chosen, so it stays a text input and the server checks it.
-- **Settled and unused parts are hidden.** A single allowed country settles
-  `country_code`, which is hidden but still submitted so the address never
-  serializes without it. Parts no allowed country uses are hidden too — Singapore
-  has no administrative area, Hong Kong no postal code.
-- **`pattern` and `inputmode`** are set on the postal code for a single allowed
-  country. `inputmode="numeric"` only where the postal code really is digits-only:
-  a numeric keyboard cannot type Canada's `K1A 0B1` or an Irish eircode.
-
-`Renderer` enumerates the allowed input renderers and validates them per field
-type via `Renderer::validFor($field)`.
-
-Elements are built with a small internal `Element` class that maps native PHP
-attribute values to HTML — `true` → bare attribute, `false`/`null` → omitted,
-scalars → escaped `name="value"`.
-
-## Request input
-
-`Input` normalizes request data so it can be fed straight back to the schema,
-smoothing over PHP's quirks:
-
-- a present-but-unfilled field arrives as `''` → normalized to `null` (presence
-  is still recoverable via `has()`);
-- a checked checkbox submits `'on'` → normalized to `true`;
-- uploaded files are merged in by input name as `{ name, type, size }` metadata
-  (ready for the `File` field);
-- nested names like `price[amount]` are accessible via chained `get()`,
-  `ArrayAccess`, or object access.
+On a POST, map the submission for the schema, validate, and render the result back in to show
+what went wrong, next to the part it went wrong with:
 
 ```php
 use Meraki\Schema\Html\Input;
+use Meraki\Schema\Html\Request\PayloadMapper;
 
+$result = $schema->validate((new PayloadMapper())->map($schema, Input::fromGlobals()));
+
+if ($result->anyFailed()) {
+    echo (new FormRenderer())->render($schema, $options, $result);
+}
+```
+
+The renderer always draws from a *result*. `meraki/schema` keeps nothing about a request on the
+schema itself, so what was submitted, what a rule changed and what failed all live on
+`$schema->resolve()` / `$schema->validate()`. With no result the renderer resolves the schema
+itself — authored defaults, and the rules as they stand with nothing submitted. To show a
+user's stored details, resolve with them:
+
+```php
+echo (new FormRenderer())->render($schema, $options, $schema->resolve(prefilledWith: $user));
+```
+
+## Messages
+
+**Required.** Rendering throws `Exception\MessagesNotConfigured` until the form says which
+language to speak, and `Exception\UnsupportedLocale` when the provider has nothing for it.
+
+`meraki/schema` owns the wording: MessageFormat 2 packs installed with Composer, so every port
+says the same thing. This package only chooses the language — per form, so per request:
+
+```php
+$options->withMessages('en-AU', Mf2Provider::fromPackage('meraki/schema-language-english'));
+
+// or, when the schema already carries a provider (new Facade(..., messages: $provider)):
+$options->withMessages('en-AU');
+```
+
+The renderer applies the language itself, so it does not matter whether `validate()` was asked
+for one. The core answers an unsupported language with silence; this package refuses instead,
+because a form whose error boxes are silently empty is the failure nobody notices.
+
+## Form options
+
+`FormOptions` is a fluent builder:
+
+- `postTo($url)` / `putTo($url)` / `getFrom($url)` — form method + action.
+- `withMessages($locale, $provider = null)` — see above.
+- `settledParts(SettledPart)` — see [Settled parts](#settled-parts).
+- `withRowKeys(RowKeys)` — how new collection rows are named (`row1`, `row2`, … by default).
+- `configure($name)` (or `configureOptionsFor($name)`) → `FieldOptions`:
+  `label()`, `hint()`, `renderAs(Renderer)`, `renderAsDropdown()`, `renderAsSelect()`,
+  `renderAsRadioGroup()`, `renderAsButtonGroup()`, `renderAsTextarea()`, `readonly()`,
+  `disabled()`, `hidden()`, `autocomplete()`, `labelOption($value, $label)`,
+  `allowAddingOptions()`, `revealInline()`, `revealWithPopup()`, `revealWithDialog()`,
+  `addInDialog()`, `inheritInNewItems()`, `settledParts()`, and `configureFor()` for a
+  structured field's parts or a collection's template fields.
+
+### Autocomplete
+
+Every field emits the semantic `autocomplete` token a browser needs to autofill it — `email` for
+an email address, `tel` for a phone number, `cc-number` and `address-line1` for the relevant
+parts of a card or an address — or nothing at all where no token is meaningful.
+
+`autocomplete(false)` emits `autocomplete="off"`; passing a token string overrides the default
+outright, on a field or on one of its parts:
+
+```php
+$options->configure('password')->autocomplete('new-password');
+$options->configure('shipping')->configure('line1')->autocomplete('shipping address-line1');
+```
+
+## Request input
+
+Two steps, because they change for different reasons:
+
+- **`Input`** is transport: it merges `$_POST` and `$_FILES` (or a PSR-7 request's parsed body
+  and uploads), turns each upload into the `{ name, type, size }` record the core's `File` field
+  reads, and turns the `''` an untouched box submits into `null`. Nothing else.
+- **`Request\PayloadMapper`** is translation, and needs the schema. The core draws a line PHP
+  does not — *an object is a record, an array is a list* — so the mapper decides which nested
+  array is which: an address, amount, card or phone number becomes an object of its parts; a
+  collection becomes an array of named rows, each an object. Along the way it drops the blank
+  spare row a collection form always offers, fills back in any [settled part](#settled-parts)
+  the form left out, and reads a checkbox's `on` (and its hidden `0`) as a boolean — for Boolean
+  fields only.
+
+```php
 $input = Input::fromGlobals();                 // $_POST + $_FILES
 $input = Input::fromPsrRequest($request);      // PSR-7 parsed body + uploads
 $input = new Input([...]);                     // already-merged array (tests)
 
-$input->get('email');                          // null if absent or empty
-$input->get('subscribe', false);              // true when checked
-$input->get('price', [])->get('amount');      // chained nested access
-$input->has('email');                          // presence (true even if empty)
-
-$result = $schema->validate($input->toArray());
+$payload = (new PayloadMapper())->map($schema, $input);
+$result = $schema->validate($payload);
 ```
 
-`Input` is read-only.
+An unticked checkbox submits nothing at all, so the renderer puts a hidden `0` in front of each
+one and the mapper reads it as `false`. A box that must be ticked (`mustBeAccepted()`) gets no
+`0`: there, unticked has to stay "not answered".
+
+## Themes
+
+What a field *says* — its label, the value it shows, whether a rule has hidden it, what went
+wrong — is decided before a theme is involved. The theme decides only how it looks.
+
+A theme is **widgets** — the markup vocabulary (`select`, `input`, `checkbox`, `choices`,
+`label`, `errors`, `dialog`, …) — put together by **field renderers**, one per field type. The
+renderers never write a tag themselves, so restyle a widget once and every field drawn with it
+changes: one `select()` draws an Enum, an address's state and country, a currency and a phone's
+country.
+
+```php
+use Meraki\Schema\Html\Presentation\Control;
+use Meraki\Schema\Html\Theme\DefaultTheme;
+use Meraki\Schema\Html\Theme\DefaultWidgets;
+
+final class BootstrapWidgets extends DefaultWidgets
+{
+    public function select(Control $control, bool $customizable = false): Element
+    {
+        return parent::select($control, $customizable)->setAttribute('class', 'form-select');
+    }
+}
+
+$renderer = new FormRenderer(new DefaultTheme(new BootstrapWidgets()));
+```
+
+`DefaultTheme` is the stock look. Swap how one field type is structured with
+`$theme->withRenderer(Field\Money::class, new MyMoneyRenderer())`; a renderer registered for the
+`Meraki\Schema\Field` interface itself catches any field type nothing else claims, which is how a
+field type of your own gets drawn.
+
+## Structured fields
+
+An address, an amount of money, a card and a phone number each hold one value with named parts,
+drawn as a fieldset of labelled controls — or, when only one part is left to fill in, as a single
+control under the field's own label. Each type's parts come from a `Presentation\PartLayout`.
+
+### Settled parts
+
+A part the field's configuration already decides — the country of an address that allows only
+Australia, the currency of an amount in AUD only, the country of an Australian phone number — is
+**left out of the form by default**. The core still requires it, so the mapper fills it back in.
+
+```php
+$options->settledParts(SettledPart::Hidden);                          // carry it in a hidden input
+$options->configure('billing')->settledParts(SettledPart::Visible);  // or show it, for one field
+```
+
+All three validate identically; the choice is markup only.
+
+### Addresses
+
+`Field\Address` is laid out by `AddressLayout`, which reads the countries the field allows and
+asks `commerceguys/addressing` how they describe an address. The core deliberately holds none of
+this — what a country calls the thing in the `administrative_area` box is presentation —
+so `AddressVocabulary` owns it here.
+
+- **Labels follow the country** when exactly one is allowed: Australia gets "Suburb" and
+  "State", Japan "Prefecture", the US "City" and "ZIP Code". With several allowed, the label
+  generalises ("Administrative Area") and the hint carries the alternatives.
+- **Dropdowns show names, submit codes** — "Queensland" for `QLD`, "Australia" for `AU`. The
+  country dropdown offers only the countries the field allows. The state is only a dropdown
+  when one country is allowed.
+- **Unused parts are left out** — Singapore has no state, Hong Kong no postcode.
+- **`pattern` and `inputmode`** are set on the postcode for a single allowed country, with
+  `inputmode="numeric"` only where the postcode really is digits-only.
+- **Required parts** are marked from the country's own rules. *This is a hint only for now:*
+  `meraki/schema` 2.0.0-alpha.2 does not yet enforce a country's required parts, so the server
+  accepts them blank until it does.
+
+## Collections
+
+A collection's rows are **named**, never numbered: `lessons[row1][date]`, `lessons[row2][date]`.
+A name means the same row on every request, so removing one leaves every other row — its inputs,
+its errors, whatever row rules said about it — exactly as it was. The form names each new row
+(`Request\SequentialRowKeys`: one past the highest in use), and Add / Remove are plain submit
+buttons (`add:lessons`, `remove:lessons:row1`) handled by the wizard.
+
+## Rule-driven hiding
+
+`Behaviour\HideOptionalFieldsResolvedByRules` (on by default) hides any field one of the schema's
+rules made optional, or whose input a rule is discarding, on this request. It reads what the
+rules did from the result, so the page can never disagree with the validation. A field the
+author made optional is never hidden by it. Turn it off with
+`$options->withoutBehaviour(HideOptionalFieldsResolvedByRules::class)`, or write your own
+`ConditionUiBehaviour`.
+
+`required` is always drawn from the field *as the rules left it* on this request.
 
 ## CSRF protection
 
@@ -134,6 +235,7 @@ session_start();
 
 $options = (new FormOptions())
     ->postTo('/signup')
+    ->withMessages('en-AU', $provider)
     ->withCsrfProtection(new SynchroniserToken(new SessionStorage()));
 ```
 
@@ -168,7 +270,7 @@ library, so verify them yourself before validating:
 
 ```php
 $options->csrf?->verify($_POST);          // throws Csrf\TokenMismatch
-$result = $schema->validate($input->toArray());
+$result = $schema->validate((new PayloadMapper())->map($schema, Input::fromGlobals()));
 ```
 
 `TokenMismatch` is an exception rather than a validation failure because it is
@@ -189,31 +291,72 @@ $form = new Wizard\Form($schema, $options, $store);
 This closes *tampering*, not *disclosure* — the answers are still readable in
 the page source. Use `SessionStore` when they must not reach the client at all.
 
+## Multi-step forms
+
+Groups (`$options->group('Title', ['field', …])`) render one per request by default.
+`Wizard\Form` sequences them: `start()` for the first GET, `handle($_POST)` for each step.
+Each step validates only its own fields; the last validates the whole schema. On completion,
+`$result->data` holds the answers as submitted and `$result->validation` the schema's verdict,
+with the typed values: `$result->validation->forField('email')->value`.
+
+A step whose every field a rule has hidden is skipped (`showAllSteps()` opts out).
+
 ## Examples
 
-Runnable scripts live in [`examples/`](examples/) — each writes HTML to stdout,
-so redirect it to a file to open in a browser:
+Runnable scripts live in [`examples/`](examples/), with an example message pack in
+[`examples/lang/`](examples/lang/):
 
 - [`render.php`](examples/render.php) — a form, then the same form re-rendered
-  with inline validation errors.
-- [`booking.php`](examples/booking.php) — a repeatable collection of items.
+  with inline validation errors. `php examples/render.php > form.html`
+- [`booking.php`](examples/booking.php) — a full stepped booking flow with rules and a
+  collection of lessons.
 - [`multi-step.php`](examples/multi-step.php) — the wizard, split across steps.
 - [`csrf.php`](examples/csrf.php) — a token-protected form and the verify-on-POST
-  branch. Serve it (`php -S localhost:8000 -t examples`) rather than redirecting,
-  since it needs a session and a real submission.
+  branch.
+
+Serve the last three rather than redirecting stdout, since they need real submissions:
+`php -S localhost:8000 -t examples`.
+
+## Migrating from 0.5
+
+0.6 targets `meraki/schema` 2.0, a ground-up rewrite, so most of the changes follow from it.
+See the core's `UPGRADING.md` for building schemas (`add($schema->createXField(...))`, rules as
+values with `addRule()`).
+
+- **Messages are required.** Add `->withMessages($locale, $provider)` to every `FormOptions`.
+  `ValidationMessages` and `ValidationMessageProvider` are gone — the wording comes from the
+  core's message packs.
+- **Render from a result.** `$schema->input()` is gone from the core; pass
+  `$schema->resolve($payload)` or `$schema->validate($payload)` as `render()`'s third argument.
+- **Map submissions before validating.** `$schema->validate($input->toArray())` becomes
+  `$schema->validate((new PayloadMapper())->map($schema, $input))`.
+- **`Input` is transport only.** `get()`, `has()`, array and property access are gone, and `on`
+  is no longer turned into `true` (the mapper does that, for Boolean fields). Read typed values
+  from the result instead.
+- **Collection rows are named.** `lessons[0][date]` is now `lessons[row1][date]`; the remove
+  action is `remove:lessons:row1`, and nothing is renumbered.
+- **Addresses:** the country part is `country` (was `country_code`), and a settled country is
+  left out of the form rather than hidden. Cards: the holder part is `name` (was `holder`).
+  Phone numbers are drawn as a country and a number.
+- **Rendering is themed.** `registerFieldRenderer($class, $callable)` becomes
+  `new FormRenderer($theme->withRenderer($class, $renderer))`. `DialogView` and `DialogStyles`
+  became `Theme\DefaultWidgets::dialog()` and `::styles()`.
+- **`FieldRenderContext`** carries the field's `$result` and `$effects` (what the rules did)
+  instead of `$data`; `$field`, `$madeOptionalByMatchedRule` and `$requiredByMatchedRule` still
+  read the same.
+- `Wizard\RuleScopes` is gone: the core's scopes no longer need rewinding.
 
 ## Local development
 
 `composer.json` links the sibling `../schema` checkout via a Composer path
 repository, so local changes to `meraki/schema` are picked up immediately. This
 needs `"minimum-stability": "dev"`, because the linked checkout resolves as
-`dev-main` (aliased to `1.13.x-dev` by the core's `extra.branch-alias`).
+`dev-main` (aliased to `2.0.x-dev` by the core's `extra.branch-alias`).
 
 The url is written as a glob (`../{schema}`) on purpose. A plain `../schema`
 makes `composer update` fail outright when the sibling checkout is not there,
 which would break CI; a glob that matches nothing is simply skipped, so Composer
-falls back to the VCS repository below it and resolves `meraki/schema` from
-GitHub as before.
+falls back to Packagist.
 
 ```
 composer install

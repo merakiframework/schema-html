@@ -200,6 +200,15 @@ final class FieldOptions implements Options
 		return $this;
 	}
 
+	/**
+	 * How this field's settled parts are drawn, overriding {@see FormOptions::settledParts()}.
+	 */
+	public function settledParts(SettledPart $strategy): self
+	{
+		$this->root->setNestedValue([...$this->path, 'settledParts'], $strategy->value);
+		return $this;
+	}
+
 	public function configureOptionsFor(string $name): self
 	{
 		return new self($this->root, [...$this->path, $name]);

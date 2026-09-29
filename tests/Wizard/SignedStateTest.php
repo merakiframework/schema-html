@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Html\Wizard;
 
 use Meraki\Schema\Facade;
+use Meraki\Schema\Html\Support\Forms;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\Signer;
 use PHPUnit\Framework\TestCase;
@@ -28,16 +29,18 @@ final class SignedStateTest extends TestCase
 	private function schema(): Facade
 	{
 		$schema = new Facade('signup');
-		$schema->addNameField('name');
-		$schema->addEmailAddressField('email');
-		$schema->addEnumField('plan', ['free', 'pro']);
+		$schema->add(
+			$schema->createNameField('name'),
+			$schema->createEmailAddressField('email'),
+			$schema->createEnumField('plan', ['free', 'pro']),
+		);
 
 		return $schema;
 	}
 
 	private function options(): FormOptions
 	{
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Account', ['name']);
 		$options->group('Contact', ['email']);
 		$options->group('Plan', ['plan']);

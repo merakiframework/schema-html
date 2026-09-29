@@ -9,11 +9,12 @@ use CommerceGuys\Addressing\Country\CountryRepository;
 use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
 
 /**
- * The words and lists needed to render a {@see \Meraki\Schema\Field\Address}.
+ * The words and lists needed to render a {@see \Meraki\Schema\Field\Address}, and the country
+ * list a {@see \Meraki\Schema\Field\PhoneNumber} offers.
  *
  * `meraki/schema` deliberately exposes none of this: what a country calls the thing in
  * the `administrative_area` box is a presentation concern, useless to a JSON serializer.
- * So schema-html reads the address's public `$allowed` country list and asks
+ * So schema-html reads the address's public `$allowedCountries` list and asks
  * `commerceguys/addressing` for the terms itself.
  *
  * The rule for labels, given the countries a field allows:
@@ -121,7 +122,7 @@ final class AddressVocabulary
 
 		// No terms with countries allowed means none of them uses this part at all (an
 		// address restricted to Singapore has no administrative area), so there is nothing
-		// to hint at — the renderer hides it. Only a free-form address gets the broad hint.
+		// to hint at — the layout leaves it out. Only a free-form address gets the broad hint.
 		if ($terms === []) {
 			return $allowedCountries === [] ? self::FREE_FORM_HINTS[$localName] ?? null : null;
 		}
@@ -153,13 +154,48 @@ final class AddressVocabulary
 	}
 
 	/**
-	 * The sub-fields a country's format actually uses, translated from libaddressinput's
-	 * field names to ours. Parts with no upstream counterpart (`country_code`) or that we
-	 * do not model (the person-name parts, `addressLine3`, `sortingCode`) are absent.
+	 * The parts every allowed country requires, beyond the street and the country.
+	 *
+	 * **A presentation hint only, and temporary.** `meraki/schema` 1.14 enforced these per
+	 * country; 2.0.0-alpha.2 does not, so for now this marks the inputs `required` without the
+	 * server insisting. It goes when the core reports required parts itself.
+	 *
+	 * An intersection, so the `required` marker never over-promises when countries disagree. A
+	 * free-form address requires nothing here. The street (`line1`) is left out: whether one is
+	 * needed is the field's own `mustBeSpecific`, not the country's.
+	 *
+	 * @param array<string> $allowedCountries
+	 * @return list<string>
+	 */
+	public function requiredParts(array $allowedCountries): array
+	{
+		$required = null;
+
+		foreach ($allowedCountries as $country) {
+			$parts = self::ourNames(self::formats()->get($country)->getRequiredFields());
+			$required = $required === null ? $parts : array_values(array_intersect($required, $parts));
+		}
+
+		return array_values(array_diff($required ?? [], ['line1']));
+	}
+
+	/**
+	 * The parts a country's format actually uses, translated from libaddressinput's field
+	 * names to ours. The country itself is always used; parts we do not model (the
+	 * person-name parts, `addressLine3`, `sortingCode`) are absent.
 	 *
 	 * @return array<string>
 	 */
 	private function usedPartsOf(string $country): array
+	{
+		return ['country', ...self::ourNames(self::formats()->get($country)->getUsedFields())];
+	}
+
+	/**
+	 * @param array<string> $upstream libaddressinput's field names
+	 * @return list<string>
+	 */
+	private static function ourNames(array $upstream): array
 	{
 		$map = [
 			'organization' => 'organization',
@@ -171,15 +207,15 @@ final class AddressVocabulary
 			'postalCode' => 'postal_code',
 		];
 
-		$used = ['country_code'];
+		$ours = [];
 
-		foreach (self::formats()->get($country)->getUsedFields() as $field) {
+		foreach ($upstream as $field) {
 			if (isset($map[$field])) {
-				$used[] = $map[$field];
+				$ours[] = $map[$field];
 			}
 		}
 
-		return $used;
+		return $ours;
 	}
 
 	/**
@@ -237,13 +273,16 @@ final class AddressVocabulary
 
 	/**
 	 * Country names for the country dropdown's option labels, so it submits `AU` while
-	 * showing "Australia".
+	 * showing "Australia". Limited to the given codes when there are any, in name order.
 	 *
+	 * @param array<string> $only
 	 * @return array<string, string> code => name
 	 */
-	public function countryNames(): array
+	public function countryNames(array $only = []): array
 	{
-		return self::countries()->getList();
+		$all = self::countries()->getList();
+
+		return $only === [] ? $all : array_intersect_key($all, array_flip($only));
 	}
 
 	/**

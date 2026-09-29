@@ -4,34 +4,30 @@ declare(strict_types=1);
 namespace Meraki\Schema\Html\Wizard;
 
 use Meraki\Schema\Facade;
+use Meraki\Schema\FieldResult;
 use Meraki\Schema\SchemaValidationResult;
 
 /**
- * Validates only the fields belonging to a single group. The whole-schema validator
- * ({@see Facade::validate()}) would fail not-yet-reached required fields, so a
- * stepped form must validate group by group.
+ * Validates only the fields belonging to a single group. The whole-schema result
+ * would fail not-yet-reached required fields, so a stepped form judges a step by its own fields.
+ *
+ * The whole schema is still validated — rules read other fields, including ones from earlier
+ * steps — and the verdicts for the other groups' fields are simply left out.
  */
 final class Validator
 {
-	/**
-	 * @param array<string, mixed> $data
-	 */
-	public function validateGroup(Facade $schema, Group $group, array $data): SchemaValidationResult
+	public function validateGroup(Facade $schema, Group $group, object $payload): SchemaValidationResult
 	{
-		// input() feeds the values and (re)applies the schema's rules, so optionality
-		// resolved by a matched rule is honoured here too.
-		RuleScopes::rewind($schema);
-		$schema->input($data);
+		$full = $schema->validate($payload);
+		$mine = [];
 
-		$results = [];
-
-		foreach ($schema->fields as $field) {
-			if (in_array($field->name->value, $group->fieldNames, true)) {
-				$results[] = $field->validate();
+		foreach ($full as $result) {
+			if ($result instanceof FieldResult && in_array((string) $result->field->name, $group->fieldNames, true)) {
+				$mine[] = $result;
 			}
 		}
 
-		return new SchemaValidationResult(...$results);
+		return new SchemaValidationResult($full->evaluatedAt, ...$mine);
 	}
 
 	public function passed(SchemaValidationResult $result): bool

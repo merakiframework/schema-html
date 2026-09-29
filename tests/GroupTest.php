@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace Meraki\Schema\Html;
 
 use Meraki\Schema\Facade;
+use Meraki\Schema\Html\Support\Forms;
+use Meraki\Schema\Html\Theme\DefaultWidgets;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
@@ -12,14 +14,16 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[Group('html')]
 #[CoversClass(FormRenderer::class)]
 #[CoversClass(FormOptions::class)]
-#[CoversClass(DialogView::class)]
+#[CoversClass(DefaultWidgets::class)]
 final class GroupTest extends TestCase
 {
 	private function schema(): Facade
 	{
 		$schema = new Facade('signup');
-		$schema->addNameField('name');
-		$schema->addEmailAddressField('email');
+		$schema->add(
+			$schema->createNameField('name'),
+			$schema->createEmailAddressField('email'),
+		);
 
 		return $schema;
 	}
@@ -27,7 +31,7 @@ final class GroupTest extends TestCase
 	#[Test]
 	public function single_page_wraps_each_group_in_a_fieldset_with_a_legend(): void
 	{
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->asSinglePage();
 		$options->group('Your name', ['name']);
 		$options->group('Contact', ['email']);
@@ -45,7 +49,7 @@ final class GroupTest extends TestCase
 	#[Test]
 	public function accordion_wraps_each_group_in_a_details_disclosure(): void
 	{
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->asAccordion();
 		$options->group('Your name', ['name']);
 		$options->group('Contact', ['email']);
@@ -60,7 +64,7 @@ final class GroupTest extends TestCase
 	#[Test]
 	public function dialogs_flow_wraps_each_group_in_a_dialog(): void
 	{
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->asDialogs();
 		$options->group('Your name', ['name']);
 
@@ -75,7 +79,7 @@ final class GroupTest extends TestCase
 	#[Test]
 	public function a_per_group_container_overrides_the_form_default(): void
 	{
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->asSinglePage(); // default container is fieldset
 		$options->group('Your name', ['name']);
 		$options->group('Contact', ['email'])->asDetails(open: true);

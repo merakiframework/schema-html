@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Html\Wizard;
 
 use Meraki\Schema\Facade;
+use Meraki\Schema\Html\Support\Forms;
 use Meraki\Schema\Html\Csrf\SynchroniserToken;
 use Meraki\Schema\Html\Csrf\TokenMismatch;
 use Meraki\Schema\Html\FormOptions;
@@ -30,15 +31,17 @@ final class CsrfFlowTest extends TestCase
 	private function schema(): Facade
 	{
 		$schema = new Facade('signup');
-		$schema->addNameField('name');
-		$schema->addEmailAddressField('email');
+		$schema->add(
+			$schema->createNameField('name'),
+			$schema->createEmailAddressField('email'),
+		);
 
 		return $schema;
 	}
 
 	private function options(): FormOptions
 	{
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Account', ['name']);
 		$options->group('Contact', ['email']);
 		$options->withCsrfProtection($this->provider);
@@ -142,7 +145,7 @@ final class CsrfFlowTest extends TestCase
 	#[Test]
 	public function an_unprotected_wizard_is_unaffected(): void
 	{
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Account', ['name']);
 		$options->group('Contact', ['email']);
 

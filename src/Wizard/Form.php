@@ -6,6 +6,7 @@ namespace Meraki\Schema\Html\Wizard;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\Input;
+use Meraki\Schema\Html\Request\PayloadMapper;
 
 /**
  * Convenience driver tying a schema, its form options (which carry the steps), and
@@ -23,6 +24,7 @@ final class Form
 		private readonly StateStore $store,
 		private readonly Renderer $renderer = new Renderer(),
 		private readonly Validator $validator = new Validator(),
+		private readonly PayloadMapper $mapper = new PayloadMapper(),
 	) {}
 
 	/**
@@ -42,7 +44,7 @@ final class Form
 	 */
 	public function handle(array $request): Result
 	{
-		// Normalize PHP request quirks (empty strings -> null, 'on' -> true) so an
+		// Normalize the one request quirk every form has (an untouched box submits '') so an
 		// optional field submitted empty is skipped, not validated as a bad value.
 		$request = (new Input($request))->toArray();
 
@@ -89,12 +91,10 @@ final class Form
 
 		// The last group validates the whole schema (catching anything earlier groups
 		// missed); earlier groups validate only their own fields.
-		if ($isLast) {
-			RuleScopes::rewind($this->schema);
-			$result = $this->schema->validate($state->data);
-		} else {
-			$result = $this->validator->validateGroup($this->schema, $groups[$index], $state->data);
-		}
+		$payload = $this->mapper->map($this->schema, $state->data);
+		$result = $isLast
+			? $this->schema->validate($payload)
+			: $this->validator->validateGroup($this->schema, $groups[$index], $payload);
 
 		if (!$this->validator->passed($result)) {
 			return Result::render(
@@ -103,7 +103,7 @@ final class Form
 		}
 
 		if ($isLast) {
-			return Result::completed($state->data);
+			return Result::completed($state->data, $result);
 		}
 
 		$target = $this->renderer->resolveVisibleIndex($this->schema, $this->options, $state->data, $index + 1, 1);
@@ -138,7 +138,7 @@ final class Form
 	}
 
 	/**
-	 * Removes each collection's draft "add" row (marked by `__draft[<field>]=<index>`)
+	 * Removes each collection's draft "add" row (marked by `__draft[<field>]=<row>`)
 	 * unless that field's own add action committed it. Keeps a prefilled/inherited draft
 	 * from becoming a phantom item or surviving a remove.
 	 *
@@ -154,15 +154,14 @@ final class Form
 			return $request;
 		}
 
-		foreach ($drafts as $field => $index) {
+		foreach ($drafts as $field => $row) {
 			// The field being explicitly added keeps its draft — that IS the new item.
 			if ($action === 'add:' . $field) {
 				continue;
 			}
 
-			if (isset($request[$field]) && is_array($request[$field])) {
-				unset($request[$field][(int) $index]);
-				$request[$field] = array_values($request[$field]);
+			if (is_string($row) && isset($request[$field]) && is_array($request[$field])) {
+				unset($request[$field][$row]);
 			}
 		}
 

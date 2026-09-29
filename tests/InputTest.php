@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html;
 
-use Meraki\Schema\Facade;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use PHPUnit\Framework\TestCase;
@@ -22,69 +21,56 @@ final class InputTest extends TestCase
 	}
 
 	#[Test]
-	public function empty_strings_become_null_and_checkboxes_become_true(): void
+	public function an_untouched_box_submitting_an_empty_string_reads_as_nothing(): void
 	{
-		$input = new Input(['name' => 'Jane', 'bio' => '', 'subscribe' => 'on']);
+		$input = new Input(['name' => 'Jane', 'bio' => '', 'price' => ['amount' => '', 'currency' => 'AUD']]);
 
-		$this->assertSame('Jane', $input->get('name'));
-		$this->assertNull($input->get('bio'));
-		$this->assertTrue($input->get('subscribe'));
+		$this->assertSame(
+			['name' => 'Jane', 'bio' => null, 'price' => ['amount' => null, 'currency' => 'AUD']],
+			$input->toArray(),
+		);
+	}
+
+	/**
+	 * Only a Boolean field means "checked" by `on`, and only the schema knows which fields
+	 * those are — so the conversion belongs to the payload mapper, not here.
+	 */
+	#[Test]
+	public function a_value_of_on_is_left_as_it_is(): void
+	{
+		$input = new Input(['subscribe' => 'on', 'switch' => 'on']);
+
+		$this->assertSame(['subscribe' => 'on', 'switch' => 'on'], $input->toArray());
 	}
 
 	#[Test]
-	public function presence_is_recoverable_even_for_empty_fields(): void
+	public function already_normalised_data_passes_through_unchanged(): void
 	{
-		$input = new Input(['name' => 'Jane', 'bio' => '']);
+		$data = ['name' => 'Jane', 'bio' => null, 'subscribe' => true, 'age' => 42];
 
-		$this->assertTrue($input->has('name'));        // submitted with a value
-		$this->assertTrue($input->has('bio'));         // submitted but empty
-		$this->assertNull($input->get('bio'));
-		$this->assertFalse($input->has('dob'));        // not submitted at all
-		$this->assertSame('fallback', $input->get('missing', 'fallback'));
-	}
-
-	#[Test]
-	public function nested_values_are_accessible_by_chained_get_array_and_object(): void
-	{
-		$input = new Input(['price' => ['currency' => 'AUD', 'amount' => '1500']]);
-
-		$this->assertSame('1500', $input->get('price', [])->get('amount', '0.00'));
-		$this->assertSame('AUD', $input['price']['currency']);
-		$this->assertSame('1500', $input->price->amount);
-		$this->assertSame('0.00', $input->get('nope', [])->get('amount', '0.00'));
-	}
-
-	#[Test]
-	public function it_is_read_only(): void
-	{
-		$input = new Input(['a' => 'b']);
-
-		$this->expectException(\LogicException::class);
-
-		$input['a'] = 'c';
+		$this->assertSame($data, (new Input($data))->toArray());
+		$this->assertSame($data, (new Input((new Input($data))->toArray()))->toArray());
 	}
 
 	#[Test]
 	public function from_globals_merges_post_and_a_single_uploaded_file(): void
 	{
-		$_POST = ['full_name' => 'Jane', 'bio' => '', 'subscribe' => 'on'];
-		$_FILES = ['resume' => [
-			'name' => 'cv.pdf',
-			'type' => 'application/pdf',
-			'size' => 1024,
-			'tmp_name' => '/tmp/php123',
-			'error' => UPLOAD_ERR_OK,
-		]];
+		$_POST = ['full_name' => 'Jane', 'bio' => ''];
+		$_FILES = [
+			'resume' => [
+				'name' => 'cv.pdf',
+				'type' => 'application/pdf',
+				'size' => 1024,
+				'tmp_name' => '/tmp/php123',
+				'error' => UPLOAD_ERR_OK,
+			],
+		];
 
-		$input = Input::fromGlobals();
-
-		$this->assertSame('Jane', $input->get('full_name'));
-		$this->assertNull($input->get('bio'));
-		$this->assertTrue($input->get('subscribe'));
-		$this->assertSame(
-			['name' => 'cv.pdf', 'type' => 'application/pdf', 'size' => 1024],
-			$input->get('resume')->toArray(),
-		);
+		$this->assertSame([
+			'full_name' => 'Jane',
+			'bio' => null,
+			'resume' => ['name' => 'cv.pdf', 'type' => 'application/pdf', 'size' => 1024],
+		], Input::fromGlobals()->toArray());
 	}
 
 	#[Test]
@@ -107,13 +93,13 @@ final class InputTest extends TestCase
 			],
 		];
 
-		$input = Input::fromGlobals();
+		$data = Input::fromGlobals()->toArray();
 
 		$this->assertSame([
 			['name' => 'a.pdf', 'type' => 'application/pdf', 'size' => 10],
 			['name' => 'b.pdf', 'type' => 'application/pdf', 'size' => 20],
-		], $input->get('docs')->toArray());
-		$this->assertFalse($input->has('avatar'));
+		], $data['docs']);
+		$this->assertArrayNotHasKey('avatar', $data);
 	}
 
 	#[Test]
@@ -129,32 +115,10 @@ final class InputTest extends TestCase
 		$request->method('getParsedBody')->willReturn(['full_name' => 'Jane', 'bio' => '']);
 		$request->method('getUploadedFiles')->willReturn(['resume' => $file]);
 
-		$input = Input::fromPsrRequest($request);
-
-		$this->assertSame('Jane', $input->get('full_name'));
-		$this->assertNull($input->get('bio'));
-		$this->assertSame(
-			['name' => 'cv.pdf', 'type' => 'application/pdf', 'size' => 2048],
-			$input->get('resume')->toArray(),
-		);
-	}
-
-	#[Test]
-	public function its_array_form_feeds_schema_validation(): void
-	{
-		$schema = new Facade('checkout');
-		$schema->addMoneyField('price', ['AUD' => 2])->minOf('AUD', '0.00');
-		$schema->addBooleanField('subscribe')->makeOptional();
-		$schema->addEmailAddressField('email')->makeOptional();
-
-		$input = new Input([
-			'price' => ['currency' => 'AUD', 'amount' => '1500'],
-			'subscribe' => 'on',
-			'email' => '',
-		]);
-
-		$result = $schema->validate($input->toArray());
-
-		$this->assertFalse($result->anyFailed());
+		$this->assertSame([
+			'full_name' => 'Jane',
+			'bio' => null,
+			'resume' => ['name' => 'cv.pdf', 'type' => 'application/pdf', 'size' => 2048],
+		], Input::fromPsrRequest($request)->toArray());
 	}
 }

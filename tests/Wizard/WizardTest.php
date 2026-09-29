@@ -4,10 +4,8 @@ declare(strict_types=1);
 namespace Meraki\Schema\Html\Wizard;
 
 use Meraki\Schema\Facade;
-use Meraki\Schema\Field;
-use Meraki\Schema\Property\Name;
-use Meraki\Schema\Rule\FieldBuilder;
 use Meraki\Schema\Html\FormOptions;
+use Meraki\Schema\Html\Support\Forms;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
@@ -28,16 +26,18 @@ final class WizardTest extends TestCase
 	private function schema(): Facade
 	{
 		$schema = new Facade('signup');
-		$schema->addNameField('name');
-		$schema->addEmailAddressField('email');
-		$schema->addEnumField('plan', ['free', 'pro']);
+		$schema->add(
+			$schema->createNameField('name'),
+			$schema->createEmailAddressField('email'),
+			$schema->createEnumField('plan', ['free', 'pro']),
+		);
 
 		return $schema;
 	}
 
 	private function options(): FormOptions
 	{
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Account', ['name']);
 		$options->group('Contact', ['email']);
 		$options->group('Plan', ['plan']);
@@ -88,8 +88,7 @@ final class WizardTest extends TestCase
 		$bad = $form->handle(['name' => '', '__wizard' => ['step' => '0', 'action' => 'next']]);
 		$this->assertFalse($bad->completed);
 		$this->assertStringContainsString('name="__wizard[step]" value="0"', $bad->html);
-		$this->assertStringContainsString('<div class="errors">', $bad->html);
-		$this->assertStringContainsString('<p>', $bad->html);
+		$this->assertStringContainsString('<div class="errors"><p>This is required.</p></div>', $bad->html);
 
 		// A valid name advances to step 1, even though the later required email is empty.
 		$good = $form->handle(['name' => 'Alice Smith', '__wizard' => ['step' => '0', 'action' => 'next']]);
@@ -130,6 +129,8 @@ final class WizardTest extends TestCase
 		$this->assertSame('Alice Smith', $result->data['name']);
 		$this->assertSame('alice@example.com', $result->data['email']);
 		$this->assertSame('pro', $result->data['plan']);
+		// ...and the typed values, as the schema read them
+		$this->assertSame('pro', (string) $result->validation?->forField('plan')?->value);
 	}
 
 	#[Test]
@@ -139,15 +140,13 @@ final class WizardTest extends TestCase
 		// empty string). Without normalization that '' is "provided" and fails
 		// validation, trapping the user on the step.
 		$schema = new Facade('contact');
-		$schema->addEnumField('contact_method', ['email', 'phone']);
-		$schema->addEmailAddressField('email_address');
-		$schema->addPhoneNumberField('phone_number');
-		$schema->whenAllMatch(fn($r) => $r
-			->whenEquals('#/fields/contact_method/value', 'email')
-			->thenRequire('#/fields/email_address')
-			->thenMakeOptional('#/fields/phone_number'));
+		$method = $schema->createEnumField('contact_method', ['email', 'phone']);
+		$email = $schema->createEmailAddressField('email_address');
+		$phone = $schema->createPhoneNumberField('phone_number', ['AU']);
+		$schema->add($method, $email, $phone);
+		$schema->addRule($method->when()->equals('email')->then($email->makeRequired(), $phone->makeOptional()));
 
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Method', ['contact_method']);
 		$options->group('Reach', ['email_address', 'phone_number']);
 		$options->requireConfirmation();
@@ -157,14 +156,14 @@ final class WizardTest extends TestCase
 		$result = $form->handle([
 			'contact_method' => 'email',
 			'email_address' => 'alice@example.com',
-			'phone_number' => '', // optional (rule) + hidden; submitted empty by the browser
+			'phone_number' => ['number' => ''], // optional (rule) + hidden; submitted empty by the browser
 			'__wizard' => ['step' => '1', 'action' => 'next'],
 		]);
 
 		$this->assertFalse($result->completed);
 		// Advanced to the confirm step, not re-rendered on step 1 with a phone error.
 		$this->assertStringContainsString('name="__wizard[step]" value="2"', $result->html);
-		$this->assertStringNotContainsString('Enter a valid phone number', $result->html);
+		$this->assertStringNotContainsString('phone number', $result->html);
 	}
 
 	#[Test]
@@ -186,18 +185,17 @@ final class WizardTest extends TestCase
 	private function conditionalSchema(): Facade
 	{
 		$schema = new Facade('demo');
-		$schema->addEnumField('mode', ['simple', 'advanced'])
-			->pairWith(new Field\Text(new Name('detail')), function (FieldBuilder $rule, Field\Text $d): void {
-				$rule->when($this)->notEquals('advanced')->thenMakeOptional($d)->thenIgnore($d);
-			});
-		$schema->addTextField('name');
+		$mode = $schema->createEnumField('mode', ['simple', 'advanced']);
+		$detail = $schema->createTextField('detail');
+		$schema->add($mode, $detail, $schema->createTextField('name'));
+		$schema->addRule($mode->when()->notEquals('advanced')->then($detail->makeOptional())->thenIgnore($detail));
 
 		return $schema;
 	}
 
 	private function conditionalOptions(): FormOptions
 	{
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Mode', ['mode']);
 		$options->group('Detail', ['detail']);
 		$options->group('Name', ['name']);

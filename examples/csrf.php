@@ -24,16 +24,20 @@ use Meraki\Schema\Html\Csrf\TokenMismatch;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\FormRenderer;
 use Meraki\Schema\Html\Input;
+use Meraki\Schema\Html\Request\PayloadMapper;
 use Meraki\Schema\Html\Wizard\SessionStorage;
+use Meraki\Schema\Message\Mf2\Mf2Provider;
 
 session_start();
 
 function buildSchema(): Facade
 {
 	$schema = new Facade('signup');
-	$schema->addNameField('name');
-	$schema->addEmailAddressField('email');
-	$schema->addEnumField('plan', ['free', 'pro']);
+	$schema->add(
+		$schema->createNameField('name'),
+		$schema->createEmailAddressField('email'),
+		$schema->createEnumField('plan', ['free', 'pro']),
+	);
 
 	return $schema;
 }
@@ -44,6 +48,7 @@ $schema = buildSchema();
 // must already be started (above).
 $options = (new FormOptions())
 	->postTo('/csrf.php')
+	->withMessages('en', Mf2Provider::fromDirectory(__DIR__ . '/lang'))
 	->withCsrfProtection(new SynchroniserToken(new SessionStorage()));
 
 $renderer = new FormRenderer();
@@ -86,7 +91,7 @@ try {
 }
 
 $input = Input::fromGlobals();
-$result = $schema->validate($input->toArray());
+$result = $schema->validate((new PayloadMapper())->map($schema, $input));
 
 if ($result->anyFailed()) {
 	echo page('<h1>Sign up</h1>' . $renderer->render($schema, $options, $result));

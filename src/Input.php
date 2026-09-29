@@ -5,30 +5,30 @@ namespace Meraki\Schema\Html;
 
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
-use ArrayAccess;
 
 /**
- * A normalized, read-only view over request input that smooths over PHP's
- * request-data quirks so it can be fed straight to a schema:
+ * Form data as it arrived over HTTP, merged into one array and smoothed over the one quirk
+ * every form has: an untouched text box submits `''`.
  *
- * - Empty strings (a present-but-unfilled field) become null. Presence is still
- *   recoverable via has(): a submitted-but-empty field is has()===true with
- *   get()===null, whereas an absent field is has()===false.
- * - The checkbox convention 'on' becomes boolean true.
- * - Uploaded files are merged in alongside body fields, keyed by input name,
- *   each as a { name, type, size } metadata array (ready for the File field).
- * - Nested names like price[amount] are accessible as arrays, objects, or via
- *   chained get(): $input->get('price')->get('amount').
+ * This is *transport* and nothing else — where the data came from, not what it means. Turning
+ * it into the objects a schema validates is {@see Request\PayloadMapper}'s job, because only a
+ * schema can say which nested array is a record and which is a list of rows.
  *
- * Build it from PSR-7 (fromPsrRequest), the superglobals (fromGlobals), or a
- * single already-merged array (the constructor, mainly for tests).
+ * - Empty strings become null. `meraki/schema` treats `''` as a real answer (an address
+ *   part submitted as `''` was *said*), so the artefact of a box nobody typed in has to be
+ *   stripped here, before it reaches the core.
+ * - Uploaded files are merged in alongside body fields, keyed by input name, each as the
+ *   `{ name, type, size }` record the core's `File` field reads.
+ * - Nothing else is converted. A checkbox's `on` is left as it is: only a Boolean field
+ *   means "checked" by it, and the mapper knows which fields those are. Converting it here
+ *   turned an Enum case or a text answer of "on" into `true`.
  *
- * @implements ArrayAccess<string, mixed>
+ * Normalising is idempotent, so already-normalised data passes through unchanged.
  */
-final class Input implements ArrayAccess
+final class Input
 {
 	/** @var array<array-key, mixed> */
-	private array $data;
+	private readonly array $data;
 
 	/**
 	 * @param array<array-key, mixed> $data A single, already-merged body+files array.
@@ -51,54 +51,12 @@ final class Input implements ArrayAccess
 		return new self(array_replace_recursive($body, self::normalizePsrFiles($request->getUploadedFiles())));
 	}
 
-	public function get(string $name, mixed $default = null): mixed
-	{
-		$value = array_key_exists($name, $this->data) ? $this->data[$name] : $default;
-
-		return is_array($value) ? new self($value) : $value;
-	}
-
-	public function has(string $name): bool
-	{
-		return array_key_exists($name, $this->data);
-	}
-
 	/**
 	 * @return array<array-key, mixed>
 	 */
 	public function toArray(): array
 	{
 		return $this->data;
-	}
-
-	public function offsetExists(mixed $offset): bool
-	{
-		return $this->has((string) $offset);
-	}
-
-	public function offsetGet(mixed $offset): mixed
-	{
-		return $this->get((string) $offset);
-	}
-
-	public function offsetSet(mixed $offset, mixed $value): void
-	{
-		throw new \LogicException('Input is read-only.');
-	}
-
-	public function offsetUnset(mixed $offset): void
-	{
-		throw new \LogicException('Input is read-only.');
-	}
-
-	public function __get(string $name): mixed
-	{
-		return $this->get($name);
-	}
-
-	public function __isset(string $name): bool
-	{
-		return $this->has($name);
 	}
 
 	/**
@@ -110,29 +68,15 @@ final class Input implements ArrayAccess
 		$normalized = [];
 
 		foreach ($data as $key => $value) {
-			$normalized[$key] = self::normalizeValue($value);
+			$normalized[$key] = match (true) {
+				is_array($value) => self::normalize($value),
+				// A present-but-unfilled field arrives as '' rather than being absent.
+				$value === '' => null,
+				default => $value,
+			};
 		}
 
 		return $normalized;
-	}
-
-	private static function normalizeValue(mixed $value): mixed
-	{
-		if (is_array($value)) {
-			return self::normalize($value);
-		}
-
-		// A present-but-unfilled field arrives as '' rather than being absent.
-		if ($value === '') {
-			return null;
-		}
-
-		// Checked checkboxes submit the string 'on'; unchecked ones are absent.
-		if ($value === 'on') {
-			return true;
-		}
-
-		return $value;
 	}
 
 	/**

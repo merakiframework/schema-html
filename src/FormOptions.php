@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html;
 
+use Meraki\Schema\Message\Provider;
+
 final class FormOptions implements Options
 {
 	public private(set) string $method = 'post';
@@ -32,10 +34,55 @@ final class FormOptions implements Options
 	 */
 	public private(set) bool $skipHiddenGroups = true;
 
+	/** The language messages are rendered in, and their source. Required before rendering. */
+	public private(set) ?Messages $messages = null;
+
+	/** How parts the field's configuration has already decided are drawn. */
+	public private(set) SettledPart $settledParts = SettledPart::Omit;
+
+	/** Names the blank row a collection offers. */
+	public private(set) Request\RowKeys $rowKeys;
+
 	public function __construct()
 	{
 		// Default set: hiding fields a matched rule made optional is on by default.
 		$this->behaviours = [new Behaviour\HideOptionalFieldsResolvedByRules()];
+		$this->rowKeys = new Request\SequentialRowKeys();
+	}
+
+	/**
+	 * The language this form's validation messages are rendered in, and optionally where the
+	 * wording comes from. Required: rendering throws {@see Exception\MessagesNotConfigured}
+	 * without it.
+	 *
+	 * The provider falls back to the schema's own (`new Facade(..., messages: $provider)`) when
+	 * none is given here. The wording lives in `meraki/schema`'s message packs, so every port
+	 * says the same thing; this package only chooses which language to use.
+	 *
+	 *     $options->withMessages('en-AU', Mf2Provider::fromPackage('meraki/schema-language-english'));
+	 */
+	public function withMessages(string $locale, ?Provider $provider = null): self
+	{
+		$this->messages = new Messages($locale, $provider);
+		return $this;
+	}
+
+	/**
+	 * How parts the field's configuration already decides are drawn — the country of an
+	 * address allowing only one, the currency of money taking only one. Omitted by default; the
+	 * value is filled back in server-side ({@see Request\PayloadMapper}) either way.
+	 */
+	public function settledParts(SettledPart $strategy): self
+	{
+		$this->settledParts = $strategy;
+		return $this;
+	}
+
+	/** Replace how a collection's new rows are named ({@see Request\SequentialRowKeys} by default). */
+	public function withRowKeys(Request\RowKeys $rowKeys): self
+	{
+		$this->rowKeys = $rowKeys;
+		return $this;
 	}
 
 	/**
@@ -81,7 +128,7 @@ final class FormOptions implements Options
 	}
 
 	/**
-	 * Opt out of the small default dialog stylesheet ({@see DialogStyles}); the host
+	 * Opt out of the theme's small default stylesheet ({@see Theme\Widgets::styles()}); the host
 	 * then supplies its own styles for `.mf-dialog`.
 	 */
 	public function withoutDefaultStyles(): self

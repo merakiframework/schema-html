@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace Meraki\Schema\Html;
 
 use Meraki\Schema\Facade;
+use Meraki\Schema\Html\Support\Forms;
+use Meraki\Schema\Html\Theme\DefaultWidgets;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
@@ -12,16 +14,16 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[Group('html')]
 #[CoversClass(FormRenderer::class)]
 #[CoversClass(FieldOptions::class)]
-#[CoversClass(DialogStyles::class)]
+#[CoversClass(DefaultWidgets::class)]
 final class RevealTest extends TestCase
 {
 	#[Test]
 	public function reveal_inline_wraps_the_field_in_a_details_disclosure(): void
 	{
 		$schema = new Facade('signup');
-		$schema->addTextField('note')->makeOptional();
+		$schema->add($schema->createTextField('note')->makeOptional());
 
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->configureOptionsFor('note')->revealInline(trigger: 'Add a note');
 
 		$html = (new FormRenderer())->render($schema, $options);
@@ -36,9 +38,9 @@ final class RevealTest extends TestCase
 	public function reveal_inline_can_be_open_by_default(): void
 	{
 		$schema = new Facade('signup');
-		$schema->addTextField('note')->makeOptional();
+		$schema->add($schema->createTextField('note')->makeOptional());
 
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->configureOptionsFor('note')->revealInline(trigger: 'Add a note', open: true);
 
 		$html = (new FormRenderer())->render($schema, $options);
@@ -50,9 +52,9 @@ final class RevealTest extends TestCase
 	public function reveal_with_popup_uses_a_command_invoker_and_popover(): void
 	{
 		$schema = new Facade('signup');
-		$schema->addTextField('coupon')->makeOptional();
+		$schema->add($schema->createTextField('coupon')->makeOptional());
 
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->configureOptionsFor('coupon')->revealWithPopup(trigger: 'Have a coupon?');
 
 		$html = (new FormRenderer())->render($schema, $options);
@@ -67,9 +69,9 @@ final class RevealTest extends TestCase
 	public function render_as_select_emits_a_customizable_select(): void
 	{
 		$schema = new Facade('signup');
-		$schema->addEnumField('plan', ['free', 'pro']);
+		$schema->add($schema->createEnumField('plan', ['free', 'pro']));
 
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->configureOptionsFor('plan')->renderAsSelect();
 
 		$html = (new FormRenderer())->render($schema, $options);

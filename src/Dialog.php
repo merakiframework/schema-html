@@ -10,7 +10,7 @@ namespace Meraki\Schema\Html;
  * `<button type="button" command="show-modal|close" commandfor="{id}">` invokers
  * (no JavaScript). Rendered open-by-default via the `open` attribute when
  * {@see self::$open} is true. A real submit button (`{confirm}`) inside submits the
- * surrounding form. See {@see DialogView} for the markup.
+ * surrounding form. See {@see Theme\Widgets::dialog()} for the markup.
  */
 final class Dialog
 {
