@@ -382,7 +382,9 @@ See the core's `UPGRADING.md` for building schemas (`add($schema->createXField(.
 values with `addRule()`).
 
 - **The schema is a `Definition`** (`Meraki\Schema\Definition`, which was `Facade`).
-- **Messages are required.** Add `->withMessages($locale, $provider)` to every `FormOptions`.
+- **Messages are required.** Add `->withMessages($locale, $provider)` to every `FormOptions`, and
+  pass the options to every `render()`: `FormRenderer::render($schema, $options, $result = null)`
+  no longer has a default for them.
   `ValidationMessages` and `ValidationMessageProvider` are gone — the wording comes from the
   core's message packs.
 - **Render from a result.** `$schema->input()` is gone from the core; pass

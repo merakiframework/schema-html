@@ -48,12 +48,14 @@ class FormRenderer
 	}
 
 	/**
+	 * Options are required because messages are: there is no form this could draw without being
+	 * told which language to speak ({@see FormOptions::withMessages()}).
+	 *
 	 * @throws MessagesNotConfigured when the options say nothing about messages
 	 * @throws UnsupportedLocale when the provider cannot serve the language asked for
 	 */
-	public function render(Definition $schema, ?FormOptions $options = null, ?SchemaValidationResult $result = null): string
+	public function render(Definition $schema, FormOptions $options, ?SchemaValidationResult $result = null): string
 	{
-		$options ??= new FormOptions();
 		$scene = $this->scene($schema, $options);
 		$result ??= $schema->resolve();
 		$form = $this->startForm($schema, $options);
