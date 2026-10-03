@@ -44,6 +44,14 @@
         }
     },
     "scripts": {
-        "test": "phpunit"
+        "test": "phpunit",
+        "serve": [
+            "Composer\\Config::disableProcessTimeout",
+            "php -S 0.0.0.0:8000 -t examples"
+        ]
+    },
+    "scripts-descriptions": {
+        "test": "Run the test suite.",
+        "serve": "Serve the examples on port 8000."
     }
 }

@@ -369,6 +369,28 @@ values with `addRule()`).
 
 ## Local development
 
+You need PHP 8.5 and Composer. Then:
+
+```
+composer install
+composer test     # the suite
+composer serve    # the examples, at http://localhost:8000
+```
+
+The tests use their own message pack, [`tests/fixtures/lang/`](tests/fixtures/lang/), so their
+assertions do not move when the published pack's wording does. `Support\FixturePackTest` fails
+when the core reports a message key the fixtures say nothing about.
+
+### In a dev container
+
+[`.devcontainer/`](.devcontainer/) holds the official `php:8.5-cli` image with Composer, git and
+unzip, run as a non-root `dev` user. Open the folder in VS Code with the Dev Containers extension
+and choose **Reopen in Container** (or open it in GitHub Codespaces, or run
+`devcontainer up --workspace-folder .` with the Dev Containers CLI). `composer install` runs when
+the container is created, and port 8000 is forwarded for `composer serve`.
+
+### Against a local `meraki/schema`
+
 `composer.json` links the sibling `../schema` checkout via a Composer path
 repository, so local changes to `meraki/schema` are picked up immediately. This
 needs `"minimum-stability": "dev"`, because the linked checkout resolves as
@@ -379,11 +401,11 @@ makes `composer update` fail outright when the sibling checkout is not there,
 which would break CI; a glob that matches nothing is simply skipped, so Composer
 falls back to Packagist.
 
-```
-composer install
-composer test
-```
+`composer install` keeps to the lock file (Packagist's release), so run
+`composer update meraki/schema` to switch to the sibling checkout, and revert `composer.lock`
+before committing. In the dev container the sibling is outside the mounted folder; add it to
+`devcontainer.json` and rebuild:
 
-The tests use their own message pack, [`tests/fixtures/lang/`](tests/fixtures/lang/), so their
-assertions do not move when the published pack's wording does. `Support\FixturePackTest` fails
-when the core reports a message key the fixtures say nothing about.
+```json
+"mounts": ["source=${localWorkspaceFolder}/../schema,target=/workspaces/schema,type=bind"]
+```
