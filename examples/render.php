@@ -56,7 +56,7 @@ $submitted = new Input([
 	'email_address' => 'not-an-email',
 	'phone_number' => ['number' => '0411 222 333'],
 	'pickup_location' => [
-		'street' => ['1 Queen St', ''],
+		'street' => "1 Queen St\r\n",
 		'locality' => 'Brisbane',
 		'subdivision' => 'AU-QLD',
 		'postal_code' => 'not-a-postcode',

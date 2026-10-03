@@ -93,8 +93,8 @@ because a form whose error boxes are silently empty is the failure nobody notice
   `renderAsRadioGroup()`, `renderAsButtonGroup()`, `renderAsTextarea()`, `readonly()`,
   `disabled()`, `hidden()`, `autocomplete()`, `labelOption($value, $label)`,
   `allowAddingOptions()`, `revealInline()`, `revealWithPopup()`, `revealWithDialog()`,
-  `addInDialog()`, `inheritInNewItems()`, `settledParts()`, `lines()` (an address's street
-  lines), and `configureFor()` for a structured field's parts or a collection's template fields.
+  `addInDialog()`, `inheritInNewItems()`, `settledParts()`, and `configureFor()` for a
+  structured field's parts or a collection's template fields.
 
 ### Autocomplete
 
@@ -198,11 +198,10 @@ server checks. What a country *calls* each part is presentation the core leaves 
 
 - **The parts** are `street` (a list of lines), `dependent_locality`, `locality`, `subdivision`,
   `postal_code` and `country`.
-- **The street is one input per line**, `billing[street][0]`, `billing[street][1]`: two by
-  default, as most checkouts ask, with `address-line1`, `address-line2`… autocomplete tokens.
-  Change them with `$options->configure('billing')->configureFor('street')->lines('Street', 'Unit', 'Building')`.
-  The mapper drops empty lines, and also accepts one newline-separated textarea if a theme draws
-  the street that way.
+- **The street is one textarea**, `billing[street]`, showing as many rows as the core accepts
+  lines (three, for every country), with the `street-address` autofill token. The mapper splits
+  it into the core's list of lines and drops empty ones; it also accepts one input per line
+  (`billing[street][]`), should a theme draw the street that way.
 - **Required parts** are the ones every allowed country requires at the field's precision. With
   any country allowed, nothing beyond the country can be known in advance, so nothing else is
   marked; the server still applies the submitted country's rules, and a part that was left out
@@ -354,11 +353,12 @@ values with `addRule()`).
   from the result instead.
 - **Collection rows are named.** `lessons[0][date]` is now `lessons[row1][date]`; the remove
   action is `remove:lessons:row1`, and nothing is renumbered.
-- **Addresses** follow the core's rebuilt address: `line1`/`line2` became the `street` list
-  (`billing[street][0]`, `billing[street][1]`), `administrative_area` became `subdivision`
-  (submitted as `AU-QLD`), `organization` is gone, and the country part is `country` (was
-  `country_code`). A settled country is left out of the form rather than hidden. Cards: the
-  holder part is `name` (was `holder`). Phone numbers are drawn as a country and a number.
+- **Addresses** follow the core's rebuilt address: `line1`/`line2` became `street`, one
+  textarea (`billing[street]`) whose lines the mapper splits out; `administrative_area` became
+  `subdivision` (submitted as `AU-QLD`); `organization` is gone; and the country part is
+  `country` (was `country_code`). A settled country is left out of the form rather than hidden.
+  Cards: the holder part is `name` (was `holder`). Phone numbers are drawn as a country and a
+  number.
 - **Rendering is themed.** `registerFieldRenderer($class, $callable)` becomes
   `new FormRenderer($theme->withRenderer($class, $renderer))`. `DialogView` and `DialogStyles`
   became `Theme\DefaultWidgets::dialog()` and `::styles()`.

@@ -69,7 +69,7 @@ final class ThemeTest extends TestCase
 		$html = (new FormRenderer($theme))->render($this->schema(), Forms::options());
 
 		$this->assertStringContainsString('<p class="custom">Plan</p>', $html);
-		$this->assertStringContainsString('name="billing[street][0]"', $html);
+		$this->assertStringContainsString('name="billing[street]"', $html);
 	}
 
 	#[Test]

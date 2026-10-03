@@ -101,10 +101,8 @@ final class FieldViewFactory
 
 		// A part that is not drawn — settled, or one the field has no use for — still has to
 		// say what is wrong with it somewhere, and the field as a whole is the only place left.
-		$drawn = array_flip(array_map(static fn(PartView $part): string => $part->name, $parts));
-
 		foreach ($byPart as $part => $said) {
-			if (!isset($drawn[$part])) {
+			if (!isset($parts[$part])) {
 				$whole = [...$whole, ...$said];
 			}
 		}
@@ -196,36 +194,11 @@ final class FieldViewFactory
 				$isSettled && $strategy === SettledPart::Hidden => PartView::WIDGET_HIDDEN,
 				($po['renderer'] ?? null) === Renderer::Dropdown->value => PartView::WIDGET_SELECT,
 				($po['renderer'] ?? null) === Renderer::Text->value => PartView::WIDGET_INPUT,
+				($po['renderer'] ?? null) === Renderer::Textarea->value => PartView::WIDGET_TEXTAREA,
 				default => (string) ($po['widget'] ?? PartView::WIDGET_INPUT),
 			};
 
-			if (!is_array($po['lines'] ?? null)) {
-				$views[$part] = $this->partView($part, null, $po, $widget, $value, $required, $errors, $isSettled, $whole);
-
-				continue;
-			}
-
-			// A part held as a list — an address's street — is one control per line, labelled
-			// in order. Only the first is required, and it carries the part's errors.
-			$shared = array_diff_key($po, ['lines' => true, 'lineTokens' => true, 'id' => true]);
-			$tokens = is_array($po['lineTokens'] ?? null) ? array_values($po['lineTokens']) : [];
-			$lines = is_array($value) ? array_values($value) : [];
-
-			foreach (array_values($po['lines']) as $i => $label) {
-				$lo = ['label' => (string) $label] + (isset($tokens[$i]) ? ['autocompleteToken' => $tokens[$i]] : []);
-
-				$views["{$part}.{$i}"] = $this->partView(
-					$part,
-					$i,
-					array_merge($shared, $lo),
-					$widget,
-					$lines[$i] ?? null,
-					$required && $i === 0,
-					$i === 0 ? $errors : [],
-					$isSettled,
-					$whole,
-				);
-			}
+			$views[$part] = $this->partView($part, $po, $widget, $value, $required, $errors, $isSettled, $whole);
 		}
 
 		return $views;
@@ -237,7 +210,6 @@ final class FieldViewFactory
 	 */
 	private function partView(
 		string $part,
-		?int $line,
 		array $po,
 		string $widget,
 		mixed $value,
@@ -246,7 +218,6 @@ final class FieldViewFactory
 		bool $settled,
 		Control $whole,
 	): PartView {
-		$path = $line === null ? [$part] : [$part, (string) $line];
 		$labels = is_array($po['options'] ?? null) ? $po['options'] : [];
 		$choices = [];
 
@@ -258,10 +229,11 @@ final class FieldViewFactory
 			name: $part,
 			label: (string) ($po['label'] ?? ucfirst(str_replace('_', ' ', $part))),
 			control: new Control(
-				id: (string) ($po['id'] ?? $whole->id . '-' . implode('-', $path)),
-				name: $whole->name . '[' . implode('][', $path) . ']',
+				id: (string) ($po['id'] ?? $whole->id . '-' . $part),
+				name: $whole->name . '[' . $part . ']',
 				type: (string) ($po['type'] ?? 'text'),
-				value: self::text($value),
+				// A part held as a list (an address's street) is shown one entry per line.
+				value: self::text(is_array($value) ? implode("\n", array_filter($value, is_string(...))) : $value),
 				required: $required,
 				readonly: (bool) ($po['readonly'] ?? $whole->readonly),
 				disabled: (bool) ($po['disabled'] ?? $whole->disabled),
@@ -272,11 +244,11 @@ final class FieldViewFactory
 				inputmode: self::string($po['inputmode'] ?? null),
 				placeholder: self::string($po['hint'] ?? null),
 				choices: $choices,
+				attributes: isset($po['rows']) ? ['rows' => (int) $po['rows']] : [],
 			),
 			widget: $widget,
 			errors: $errors,
 			settled: $settled,
-			line: $line,
 		);
 	}
 

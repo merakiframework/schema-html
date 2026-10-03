@@ -72,6 +72,10 @@ final class StructuredFieldRenderer implements FieldRenderer
 
 	private function control(Widgets $w, PartView $part): Element
 	{
-		return $part->widget === PartView::WIDGET_SELECT ? $w->select($part->control) : $w->input($part->control);
+		return match ($part->widget) {
+			PartView::WIDGET_SELECT => $w->select($part->control),
+			PartView::WIDGET_TEXTAREA => $w->textarea($part->control),
+			default => $w->input($part->control),
+		};
 	}
 }

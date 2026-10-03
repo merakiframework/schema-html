@@ -33,10 +33,8 @@ use Meraki\Schema\Html\Presentation\PartLayout;
  * allowed ("Suburb", "State", "ZIP Code"); with several they generalise and the hint lists the
  * alternatives.
  *
- * The street is one part holding a list of lines, drawn as one input per line — two by default,
- * as most checkouts ask. Name the lines to change how many there are:
- *
- *     $options->configureOptionsFor('address')->configureOptionsFor('street')->lines('Street', 'Unit', 'Building');
+ * The street is one part holding a list of lines, drawn as one textarea (`street-address`, the
+ * autofill token for exactly that) showing as many rows as the core accepts lines.
  *
  * The country part is always listed; whether a *settled* one (a single allowed country) is drawn
  * is the form's choice ({@see \Meraki\Schema\Html\SettledPart}).
@@ -45,11 +43,7 @@ final class AddressLayout implements PartLayout
 {
 	/** The parts that mean the same thing everywhere, and so keep one label. */
 	private const DEFAULTS = [
-		'street' => [
-			'label' => 'Address',
-			'lines' => ['Address', 'Apartment, unit, etc.'],
-			'lineTokens' => ['address-line1', 'address-line2', 'address-line3'],
-		],
+		'street' => ['label' => 'Address', 'widget' => 'textarea', 'autocompleteToken' => 'street-address'],
 		'dependent_locality' => ['label' => 'Suburb', 'autocompleteToken' => 'address-level3'],
 		'locality' => ['label' => 'City', 'autocompleteToken' => 'address-level2'],
 		'subdivision' => ['label' => 'Administrative Area', 'autocompleteToken' => 'address-level1'],
@@ -88,6 +82,10 @@ final class AddressLayout implements PartLayout
 			}
 
 			$spec['required'] = $part === 'country' || in_array($part, $required, true);
+
+			if ($part === 'street') {
+				$spec['rows'] = $only?->streetLineLimit ?? Requirements::genericStreetLineLimit();
+			}
 
 			if ($part === 'postal_code' && $only !== null) {
 				$spec += $this->postalCodeHints($only);

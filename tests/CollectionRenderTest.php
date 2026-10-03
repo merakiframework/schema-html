@@ -142,7 +142,7 @@ final class CollectionRenderTest extends TestCase
 		);
 	}
 
-	/** A dropdown's value reads as its label, not its code: the state, not `AU-QLD`. */
+	/** A dropdown's value reads as its label, not its code (the state, not `AU-QLD`); a street on one line. */
 	#[Test]
 	public function a_read_only_row_shows_a_choices_label(): void
 	{
@@ -157,10 +157,11 @@ final class CollectionRenderTest extends TestCase
 		$options->configureOptionsFor('lessons')->configureOptionsFor('level')->labelOption('beginner', 'Beginner');
 
 		$html = $this->render($schema, ['lessons' => ['row1' => ['level' => 'beginner', 'pickup' => [
-			'street' => ['1 King St'], 'locality' => 'Brisbane', 'subdivision' => 'AU-QLD', 'postal_code' => '4000',
+			'street' => "Level 2\r\n1 King St", 'locality' => 'Brisbane', 'subdivision' => 'AU-QLD', 'postal_code' => '4000',
 		]]]], $options);
 
 		$this->assertStringContainsString('<span class="collection-value">Level: Beginner</span>', $html);
+		$this->assertStringContainsString('<span class="collection-value">Pickup address: Level 2, 1 King St</span>', $html);
 		$this->assertStringContainsString('<span class="collection-value">Pickup state: Queensland</span>', $html);
 		$this->assertStringContainsString('<input type="hidden" name="lessons[row1][pickup][subdivision]" value="AU-QLD">', $html);
 	}
@@ -191,11 +192,11 @@ final class CollectionRenderTest extends TestCase
 		));
 
 		$html = $this->render($schema, ['lessons' => ['row1' => ['date' => '2026-01-01', 'pickup' => [
-			'street' => ['1 King St'], 'locality' => 'Brisbane', 'subdivision' => 'AU-QLD', 'postal_code' => '4000',
+			'street' => '1 King St', 'locality' => 'Brisbane', 'subdivision' => 'AU-QLD', 'postal_code' => '4000',
 		]]]]);
 
 		// the per-row address renders with doubly-nested names and the row's value
-		$this->assertStringContainsString('name="lessons[row1][pickup][street][0]"', $html);
+		$this->assertStringContainsString('name="lessons[row1][pickup][street]"', $html);
 		$this->assertStringContainsString('value="Brisbane"', $html);
 		// and the spare row keeps the same nesting
 		$this->assertStringContainsString('name="lessons[row2][pickup][postal_code]"', $html);

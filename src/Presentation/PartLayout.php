@@ -16,11 +16,12 @@ use Meraki\Schema\Field;
  * `autocompleteToken`, `pattern`, `inputmode`, `options`), plus:
  *
  * - `type`: the input type (`text`, `tel`, `month`, …);
- * - `widget`: `input` or `select`;
+ * - `widget`: `input`, `select` or `textarea`;
+ * - `rows`: how many lines a textarea shows;
  * - `choices`: value => label for a select;
- * - `required`: whether the part needs an answer when the field does;
- * - `lines`: for a part held as a list, one label per line to draw (an address's `street`);
- * - `lineTokens`: the autocomplete token for each line, by position.
+ * - `required`: whether the part needs an answer when the field does.
+ *
+ * A part held as a list (an address's `street`) is shown one entry per line.
  *
  * Options a caller sets for a part (`$options->configure('price')->configure('amount')`) are
  * laid over these.

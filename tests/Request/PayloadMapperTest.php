@@ -45,7 +45,7 @@ final class PayloadMapperTest extends TestCase
 		);
 
 		$payload = $this->map($schema, [
-			'billing' => ['street' => ['1 King St'], 'locality' => 'Brisbane'],
+			'billing' => ['street' => '1 King St', 'locality' => 'Brisbane'],
 			'price' => ['amount' => '12.50'],
 			'mobile' => ['number' => '0412 345 678'],
 		]);
@@ -61,7 +61,7 @@ final class PayloadMapperTest extends TestCase
 		$schema = new Definition('checkout');
 		$schema->add($schema->createAddressField('billing', ['AU']));
 
-		$payload = $this->map($schema, ['billing' => ['street' => ['1 King St'], 'country' => 'NZ']]);
+		$payload = $this->map($schema, ['billing' => ['street' => '1 King St', 'country' => 'NZ']]);
 
 		$this->assertSame('NZ', $payload->billing->country);
 	}
@@ -80,7 +80,7 @@ final class PayloadMapperTest extends TestCase
 		);
 
 		$payload = $this->map($schema, [
-			'billing' => ['street' => ['', ''], 'locality' => '', 'country' => 'AU'],
+			'billing' => ['street' => '', 'locality' => '', 'country' => 'AU'],
 			'price' => ['amount' => '', 'currency' => 'AUD'],
 		]);
 
@@ -100,7 +100,7 @@ final class PayloadMapperTest extends TestCase
 		$schema->add($schema->createAddressField('billing', ['AU']));
 
 		$payload = $this->map($schema, ['billing' => [
-			'street' => ['1 King St'],
+			'street' => '1 King St',
 			'line1' => 'from a stale page',
 			'locality' => 'Brisbane',
 			'subdivision' => 'QLD',
@@ -130,9 +130,21 @@ final class PayloadMapperTest extends TestCase
 		);
 	}
 
-	/** A street is a list of lines: one input per line, the empty ones dropped. */
+	/** A street is a list of lines, typed into one textarea: its line breaks separate them. */
 	#[Test]
-	public function a_streets_lines_are_its_non_empty_inputs(): void
+	public function a_street_typed_into_one_box_is_split_into_lines(): void
+	{
+		$schema = new Definition('checkout');
+		$schema->add($schema->createAddressField('billing', ['AU']));
+
+		$payload = $this->map($schema, ['billing' => ['street' => "Level 2\r\n\r\n1 King St\r\n", 'locality' => 'Brisbane']]);
+
+		$this->assertSame(['Level 2', '1 King St'], $payload->billing->street);
+	}
+
+	/** A theme may draw one input per line instead; the empty ones are dropped. */
+	#[Test]
+	public function a_streets_lines_may_also_arrive_as_one_input_each(): void
 	{
 		$schema = new Definition('checkout');
 		$schema->add($schema->createAddressField('billing', ['AU']));
@@ -140,18 +152,6 @@ final class PayloadMapperTest extends TestCase
 		$payload = $this->map($schema, ['billing' => ['street' => ['1 King St', ''], 'locality' => 'Brisbane']]);
 
 		$this->assertSame(['1 King St'], $payload->billing->street);
-	}
-
-	/** A theme may draw the street as one textarea instead; its line breaks separate the lines. */
-	#[Test]
-	public function a_street_typed_into_one_box_is_split_into_lines(): void
-	{
-		$schema = new Definition('checkout');
-		$schema->add($schema->createAddressField('billing', ['AU']));
-
-		$payload = $this->map($schema, ['billing' => ['street' => "Level 2\r\n1 King St\r\n", 'locality' => 'Brisbane']]);
-
-		$this->assertSame(['Level 2', '1 King St'], $payload->billing->street);
 	}
 
 	#[Test]

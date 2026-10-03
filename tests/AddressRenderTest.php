@@ -163,29 +163,18 @@ final class AddressRenderTest extends TestCase
 	// Which parts are required.
 
 	/**
-	 * The street is one part holding a list of lines, drawn as one input per line. Only the
-	 * first is ever required.
+	 * The street is one part holding a list of lines, drawn as one textarea showing as many rows
+	 * as the core accepts lines.
 	 */
 	#[Test]
-	public function the_street_is_drawn_as_one_input_per_line(): void
+	public function the_street_is_drawn_as_a_textarea_of_three_rows(): void
 	{
 		$html = $this->render(['billing' => 'AU']);
 
-		$this->assertMatchesRegularExpression('/name="billing\[street\]\[0\]"[^>]*required[^>]*autocomplete="address-line1"/', $html);
-		$this->assertMatchesRegularExpression('/name="billing\[street\]\[1\]"[^>]*autocomplete="address-line2"/', $html);
-		$this->assertDoesNotMatchRegularExpression('/name="billing\[street\]\[1\]"[^>]*required/', $html);
-	}
-
-	#[Test]
-	public function the_street_lines_can_be_configured(): void
-	{
-		$options = Forms::options();
-		$options->configureOptionsFor('billing')->configureOptionsFor('street')->lines('Street', 'Unit', 'Building');
-
-		$html = $this->render(['billing' => 'AU'], $options);
-
-		$this->assertMatchesRegularExpression('/>Street<\/label><input[^>]*name="billing\[street\]\[0\]"[^>]*autocomplete="address-line1"/', $html);
-		$this->assertMatchesRegularExpression('/>Building<\/label><input[^>]*name="billing\[street\]\[2\]"[^>]*autocomplete="address-line3"/', $html);
+		$this->assertMatchesRegularExpression(
+			'/<textarea id="[^"]*-street" name="billing\[street\]" rows="3"[^>]*required[^>]*autocomplete="street-address"><\/textarea>/',
+			$html,
+		);
 	}
 
 	/**
@@ -307,7 +296,7 @@ final class AddressRenderTest extends TestCase
 		$html = (new FormRenderer())->render($schema, Forms::options(), $result);
 
 		$this->assertMatchesRegularExpression(
-			'/name="billing\[street\]\[0\]"[^>]*>(?:(?!data-name).)*a PO box or bag service is not somewhere that can be visited/s',
+			'/name="billing\[street\]"[^>]*>(?:(?!data-name).)*a PO box or bag service is not somewhere that can be visited/s',
 			$html,
 		);
 		$this->assertMatchesRegularExpression(
@@ -322,7 +311,7 @@ final class AddressRenderTest extends TestCase
 	{
 		$schema = new Definition('checkout');
 		$schema->add($schema->createAddressField('billing', ['AU']));
-		$wire = ['billing' => ['street' => ['1 Queen St', null], 'locality' => 'Brisbane', 'subdivision' => 'AU-QLD']];
+		$wire = ['billing' => ['street' => "1 Queen St\r\n", 'locality' => 'Brisbane', 'subdivision' => 'AU-QLD']];
 
 		$result = $schema->validate((new Request\PayloadMapper())->map($schema, $wire));
 		$html = (new FormRenderer())->render($schema, Forms::options(), $result);
@@ -331,11 +320,11 @@ final class AddressRenderTest extends TestCase
 			'/name="billing\[postal_code\]"[^>]*>(?:(?!data-name).)*Enter a postal code\./s',
 			$html,
 		);
-		$this->assertMatchesRegularExpression('/name="billing\[street\]\[0\]"[^>]*value="1 Queen St"/', $html);
+		$this->assertMatchesRegularExpression('/name="billing\[street\]"[^>]*>1 Queen St<\/textarea>/', $html);
 		$this->assertStringContainsString('<option value="AU-QLD" selected>Queensland</option>', $html);
 	}
 
-	/** A prefilled address is drawn from its value: each street line, and the subdivision's code. */
+	/** A prefilled address is drawn from its value: a line per street line, and the subdivision's code. */
 	#[Test]
 	public function a_prefilled_address_draws_each_line(): void
 	{
@@ -351,8 +340,7 @@ final class AddressRenderTest extends TestCase
 		]]);
 		$html = (new FormRenderer())->render($schema, Forms::options(), $result);
 
-		$this->assertMatchesRegularExpression('/name="billing\[street\]\[0\]"[^>]*value="Level 2"/', $html);
-		$this->assertMatchesRegularExpression('/name="billing\[street\]\[1\]"[^>]*value="1 Queen St"/', $html);
+		$this->assertMatchesRegularExpression('/name="billing\[street\]"[^>]*>Level 2\n1 Queen St<\/textarea>/', $html);
 		$this->assertStringContainsString('<option value="AU-QLD" selected>Queensland</option>', $html);
 	}
 

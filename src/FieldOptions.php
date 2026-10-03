@@ -85,7 +85,7 @@ final class FieldOptions implements Options
 	 * Turns browser autofill on or off for this field.
 	 *
 	 * On (the default) emits the semantic `autocomplete` token for the field's type — an
-	 * email field gets `email`, an address's street lines `address-line1` and its postcode
+	 * email field gets `email`, an address's street `street-address` and its postcode
 	 * `postal-code` — or nothing at all where no token is meaningful. Off emits
 	 * `autocomplete="off"`, for one-time codes and anything a browser should not remember.
 	 *
@@ -197,18 +197,6 @@ final class FieldOptions implements Options
 	public function inheritInNewItems(string ...$localNames): self
 	{
 		$this->root->setNestedValue([...$this->path, 'inheritInNewItems'], array_values($localNames));
-		return $this;
-	}
-
-	/**
-	 * Draws a part held as a list — an address's `street` — as one input per label, in order.
-	 * Each line keeps the autocomplete token for its position (`address-line1`, `address-line2`, …).
-	 *
-	 *     $options->configureOptionsFor('address')->configureOptionsFor('street')->lines('Street', 'Unit');
-	 */
-	public function lines(string $first, string ...$more): self
-	{
-		$this->root->setNestedValue([...$this->path, 'lines'], [$first, ...$more]);
 		return $this;
 	}
 

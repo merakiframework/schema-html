@@ -63,8 +63,7 @@ final class AutocompleteTest extends TestCase
 	public static function partsWithTokens(): array
 	{
 		return [
-			'address street line 1' => ['createAddressField', 'street][0', 'address-line1'],
-			'address street line 2' => ['createAddressField', 'street][1', 'address-line2'],
+			'address street' => ['createAddressField', 'street', 'street-address'],
 			'address locality' => ['createAddressField', 'locality', 'address-level2'],
 			'address subdivision' => ['createAddressField', 'subdivision', 'address-level1'],
 			'address postal code' => ['createAddressField', 'postal_code', 'postal-code'],

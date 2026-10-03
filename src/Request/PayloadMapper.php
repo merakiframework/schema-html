@@ -26,7 +26,7 @@ use stdClass;
  *   address that is all country and no street. Only the parts the value declares are taken, and
  *   a part left empty is left out rather than sent as null;
  * - a part held as a list (an address's `street`) is taken as its non-empty lines, whether it
- *   arrived as one input per line or as one newline-separated textarea;
+ *   arrived as a textarea's text or as one input per line;
  * - a collection becomes an array of named rows, each mapped through the template. **Blank rows
  *   are dropped** — the spare row a form always offers arrives empty, and the core takes whatever
  *   it is given as intentional. Row names pass through untouched, so a positional list still
@@ -130,9 +130,9 @@ final class PayloadMapper
 	}
 
 	/**
-	 * A list part's lines: one input per line, or a textarea's text split on its line breaks.
-	 * Empty lines are dropped (the spare second line of an address is usually empty); anything
-	 * else passes through for the core to judge.
+	 * A list part's lines: a textarea's text split on its line breaks, or one input per line.
+	 * Empty lines are dropped (a trailing line break is easy to leave behind); anything else
+	 * passes through for the core to judge.
 	 *
 	 * @return list<mixed>|mixed|null null when no line holds anything
 	 */

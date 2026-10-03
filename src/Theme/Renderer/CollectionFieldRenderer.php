@@ -87,7 +87,8 @@ final class CollectionFieldRenderer implements FieldRenderer
 			if ($field->parts !== []) {
 				foreach ($field->parts as $part) {
 					$value = $part->control->value ?? '';
-					$shown = $part->control->choices[$value] ?? $value;
+					// A dropdown's label rather than its code; a street's lines on one line.
+					$shown = $part->control->choices[$value] ?? preg_replace('/\R/', ', ', $value);
 					$children[] = $w->collectionValue($field->label . ' ' . strtolower($part->label), $shown);
 					$children[] = $w->hidden($part->control->name, $value);
 				}
