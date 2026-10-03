@@ -36,7 +36,7 @@ final class HiddenFieldStore implements StateStore
 
 	/**
 	 * Flattens nested values (a structured field's parts, a collection's rows) to bracketed
-	 * input names, e.g. ['address' => ['street' => ['x']]] => ['address[street][0]' => 'x']. Empty and
+	 * input names, e.g. ['address' => ['locality' => 'x']] => ['address[locality]' => 'x']. Empty and
 	 * null values are dropped (nothing to carry).
 	 *
 	 * Public so {@see SignedHiddenFieldStore} can sign and re-derive exactly the

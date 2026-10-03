@@ -99,7 +99,7 @@ because a form whose error boxes are silently empty is the failure nobody notice
 ### Autocomplete
 
 Every field emits the semantic `autocomplete` token a browser needs to autofill it — `email` for
-an email address, `tel` for a phone number, `cc-number` and `address-line1` for the relevant
+an email address, `tel` for a phone number, `cc-number` and `street-address` for the relevant
 parts of a card or an address — or nothing at all where no token is meaningful.
 
 `autocomplete(false)` emits `autocomplete="off"`; passing a token string overrides the default
