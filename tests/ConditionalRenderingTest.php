@@ -59,6 +59,27 @@ final class ConditionalRenderingTest extends TestCase
 		$this->assertDoesNotMatchRegularExpression('/data-name="email_address"\s+hidden/', $html);
 	}
 
+	/**
+	 * Optional is not ignored: a value that is there is still checked. Hiding a field that failed
+	 * would hide its message too, leaving a form that will not submit and nothing to say why —
+	 * here, a phone number typed badly before switching the method to email.
+	 */
+	#[Test]
+	public function a_field_a_rule_made_optional_is_shown_when_it_fails(): void
+	{
+		$schema = $this->contactSchema();
+		$result = $schema->validate((new Request\PayloadMapper())->map($schema, [
+			'contact_method' => 'email',
+			'email_address' => 'alice@example.test',
+			'phone_number' => ['number' => '12'],
+		]));
+
+		$html = (new FormRenderer())->render($schema, Forms::options(), $result);
+
+		$this->assertDoesNotMatchRegularExpression('/data-name="phone_number"\s+hidden/', $html);
+		$this->assertMatchesRegularExpression('/data-name="phone_number".*That is not a valid phone number\./s', $html);
+	}
+
 	#[Test]
 	public function swapping_the_choice_swaps_which_field_is_hidden(): void
 	{

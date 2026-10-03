@@ -7,6 +7,18 @@ JavaScript.
 Keeps HTML/form-rendering concerns out of the core schema domain. Reads only
 `meraki/schema`'s public API. Requires PHP 8.5 and `meraki/schema` 2.0.
 
+## Installation
+
+```
+composer require meraki/schema-html meraki/schema:^2.0@alpha meraki/schema-language-english:dev-main
+```
+
+All three are needed for now. `meraki/schema` 2.0 is still in alpha, and Composer only accepts a
+pre-release that your own `composer.json` asks for, so `@alpha` has to be written there rather
+than inherited from this package. The English message pack has no tagged release yet, hence
+`dev-main`; any MessageFormat 2 pack will do instead (see [Messages](#messages)). Once both are
+released, `composer require meraki/schema-html` alone will be enough.
+
 ## Usage
 
 ```php
@@ -236,6 +248,12 @@ rules did from the result, so the page can never disagree with the validation. A
 author made optional is never hidden by it. Turn it off with
 `$options->withoutBehaviour(HideOptionalFieldsResolvedByRules::class)`, or write your own
 `ConditionUiBehaviour`.
+
+A field that failed is never hidden. Optional is not ignored: a value that is there is still
+checked, so a phone number typed badly before switching the contact method to email still fails,
+and hiding it would hide the message saying so. Pair `makeOptional()` with `thenIgnore()` when the
+value should be discarded instead. In a stepped form, a failure the last step's whole-schema check
+finds on an earlier step takes the form back to that step.
 
 `required` is always drawn from the field *as the rules left it* on this request.
 

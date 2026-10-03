@@ -11,6 +11,7 @@ use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\Input;
 use Meraki\Schema\Html\Presentation\RuleEffects;
 use Meraki\Schema\Html\Request\PayloadMapper;
+use Meraki\Schema\SchemaValidationResult;
 use stdClass;
 
 /**
@@ -102,8 +103,10 @@ final class Form
 			: $this->validator->validateGroup($this->schema, $groups[$index], $payload);
 
 		if (!$this->validator->passed($result)) {
+			$target = $isLast && !$groups[$index]->confirmation ? $this->stepHolding($result) ?? $index : $index;
+
 			return Result::render(
-				$this->renderer->render($this->schema, $this->options, $this->store, $state, $result),
+				$this->renderer->render($this->schema, $this->options, $this->store, $state->movedTo($target), $result),
 			);
 		}
 
@@ -116,6 +119,28 @@ final class Form
 		return Result::render(
 			$this->renderer->render($this->schema, $this->options, $this->store, $state->movedTo($target)),
 		);
+	}
+
+	/**
+	 * The first step drawing a field that failed.
+	 *
+	 * The last step validates the whole schema, so it can be the first to see a failure on an
+	 * earlier step — one a rule skipped, or one whose field a later answer made required.
+	 * Re-drawing the last step would show nothing wrong and the form could not be submitted, so
+	 * it goes back to where the failure can be seen and fixed. (A review step draws the whole
+	 * form with its errors, so it has no need to.)
+	 */
+	private function stepHolding(SchemaValidationResult $result): ?int
+	{
+		foreach ($this->options->groups as $index => $group) {
+			foreach ($group->fieldNames as $name) {
+				if ($result->forField($name)?->status->failed()) {
+					return $index;
+				}
+			}
+		}
+
+		return null;
 	}
 
 	/**

@@ -247,6 +247,38 @@ final class WizardTest extends TestCase
 		);
 	}
 
+	/**
+	 * A bad phone number typed, then Back to switch to email: the phone step is skipped, and the
+	 * last step's whole-schema check is the first to see the bad value. Re-drawing the last step
+	 * would show nothing wrong, so the form returns to the step that holds the failure.
+	 */
+	#[Test]
+	public function a_failure_on_an_earlier_step_takes_the_form_back_to_that_step(): void
+	{
+		$schema = new Definition('contact');
+		$method = $schema->createEnumField('contact_method', ['email', 'phone']);
+		$phone = $schema->createPhoneNumberField('phone_number', ['AU']);
+		$schema->add($method, $phone, $schema->createNameField('name'));
+		$schema->addRule($method->when()->equals('email')->then($phone->makeOptional()));
+
+		$options = Forms::options();
+		$options->group('Method', ['contact_method']);
+		$options->group('Phone', ['phone_number']);
+		$options->group('Name', ['name']);
+
+		$result = (new Form($schema, $options, new HiddenFieldStore()))->handle([
+			'contact_method' => 'email',
+			'phone_number' => ['number' => '12'],
+			'name' => 'Alice Smith',
+			'__wizard' => ['step' => '2', 'action' => 'submit'],
+		]);
+
+		$this->assertFalse($result->completed);
+		$this->assertStringContainsString('name="__wizard[step]" value="1"', $result->html);
+		$this->assertDoesNotMatchRegularExpression('/data-name="phone_number"\s+hidden/', $result->html);
+		$this->assertStringContainsString('That is not a valid phone number.', $result->html);
+	}
+
 	#[Test]
 	public function an_optional_field_submitted_empty_does_not_block_advancing(): void
 	{

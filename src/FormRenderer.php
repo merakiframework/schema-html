@@ -201,8 +201,8 @@ class FormRenderer
 
 	/**
 	 * Fields the default hide behaviour would hide on this request — those a rule made
-	 * optional or is ignoring. Stepped rendering uses it to skip a step with nothing left to
-	 * fill in.
+	 * optional or is ignoring, unless they failed. Stepped rendering uses it to skip a step with
+	 * nothing left to fill in.
 	 *
 	 * @return array<string, true>
 	 */
@@ -230,7 +230,7 @@ class FormRenderer
 
 			$effects = RuleEffects::of($fieldResult);
 
-			if ($effects->madeOptional() || $effects->ignored) {
+			if (!$fieldResult->status->failed() && ($effects->madeOptional() || $effects->ignored)) {
 				$hidden[(string) $fieldResult->field->name] = true;
 			}
 		}
