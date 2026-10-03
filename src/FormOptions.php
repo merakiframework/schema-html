@@ -34,6 +34,13 @@ final class FormOptions implements Options
 	 */
 	public private(set) bool $skipHiddenGroups = true;
 
+	/**
+	 * Whether groups are drawn with their titles — a fieldset's legend, a dialog's heading —
+	 * unless a group says otherwise ({@see Wizard\GroupOptions::showTitle()} / `hideTitle()`).
+	 * On by default.
+	 */
+	public private(set) bool $groupTitles = true;
+
 	/** The language messages are rendered in, and their source. Required before rendering. */
 	public private(set) ?Messages $messages = null;
 
@@ -90,6 +97,20 @@ final class FormOptions implements Options
 	public function showAllSteps(): self
 	{
 		$this->skipHiddenGroups = false;
+		return $this;
+	}
+
+	/** Draw every group with its title unless the group hides it (the default). */
+	public function showGroupTitles(): self
+	{
+		$this->groupTitles = true;
+		return $this;
+	}
+
+	/** Draw no group with its title unless the group shows it. */
+	public function hideGroupTitles(): self
+	{
+		$this->groupTitles = false;
 		return $this;
 	}
 

@@ -75,10 +75,11 @@ interface Widgets
 	public function datalist(string $id, array $options): Element;
 
 	/**
+	 * @param string|null $legend null for a fieldset with no legend
 	 * @param iterable<Element|string> $children
 	 * @param array<string, mixed> $attributes
 	 */
-	public function fieldset(string $legend, iterable $children, array $attributes = []): Element;
+	public function fieldset(?string $legend, iterable $children, array $attributes = []): Element;
 
 	/**
 	 * A disclosure.

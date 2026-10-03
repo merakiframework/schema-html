@@ -232,6 +232,22 @@ final class WizardTest extends TestCase
 	}
 
 	#[Test]
+	public function a_steps_title_follows_the_form_default_unless_the_step_says_otherwise(): void
+	{
+		$options = Forms::options()->hideGroupTitles();
+		$options->group('Account', ['name']);
+		$options->group('Contact', ['email'])->showTitle();
+		$options->group('Plan', ['plan']);
+		$form = new Form($this->schema(), $options, new HiddenFieldStore());
+
+		$this->assertStringContainsString('<fieldset class="mf-group"><div class="field"', $form->start());
+		$this->assertStringContainsString(
+			'<fieldset class="mf-group"><legend>Contact</legend>',
+			$form->handle(['name' => 'Alice', '__wizard' => ['step' => '0', 'action' => 'next']])->html,
+		);
+	}
+
+	#[Test]
 	public function an_optional_field_submitted_empty_does_not_block_advancing(): void
 	{
 		// Regression: the browser submits a rule-hidden, optional field as '' (an

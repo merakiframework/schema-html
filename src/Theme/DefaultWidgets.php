@@ -179,9 +179,13 @@ class DefaultWidgets implements Widgets
 		return $datalist;
 	}
 
-	public function fieldset(string $legend, iterable $children, array $attributes = []): Element
+	public function fieldset(?string $legend, iterable $children, array $attributes = []): Element
 	{
-		$fieldset = (new Element('fieldset', $attributes))->append((new Element('legend'))->setText($legend));
+		$fieldset = new Element('fieldset', $attributes);
+
+		if ($legend !== null) {
+			$fieldset->append((new Element('legend'))->setText($legend));
+		}
 
 		foreach ($children as $child) {
 			$fieldset->append($child);

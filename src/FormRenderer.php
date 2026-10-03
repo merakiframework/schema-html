@@ -260,6 +260,7 @@ class FormRenderer
 	private function group(Wizard\Group $group, int $index, FormOptions $options, array $elements): Element
 	{
 		$w = $this->theme->widgets();
+		$title = $group->titleOr($options->groupTitles);
 
 		return match ($group->containerOr($options->defaultContainer)) {
 			Wizard\Container::Dialog => $w->dialog(new Dialog(
@@ -268,10 +269,11 @@ class FormRenderer
 				trigger: $group->trigger !== 'Open' ? $group->trigger : $group->title,
 				confirm: $group->confirm,
 				close: $group->close,
-				heading: $group->title,
+				heading: $title ?? '',
 			), $elements),
+			// A disclosure's summary is the control that opens it, so it keeps the title.
 			Wizard\Container::Details => $w->details($group->title, $elements, $group->open),
-			Wizard\Container::Fieldset => $w->fieldset($group->title, $elements, ['class' => 'mf-group']),
+			Wizard\Container::Fieldset => $w->fieldset($title, $elements, ['class' => 'mf-group']),
 		};
 	}
 

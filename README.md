@@ -315,6 +315,19 @@ Groups (`$options->group('Title', ['field', …])`) render one per request by de
 Each step is drawn the way a single-page form draws the same group, titled by it: a `<fieldset>`
 with the title as its legend by default, or a `<details>` or `<dialog>` headed by it
 (`->asDetails()`, `->asDialog()` per group).
+
+Titles are on by default. Switch them for the whole form, then override any group either way:
+
+```php
+$options->hideGroupTitles();                                      // no group is titled…
+$options->group('Your details', ['name', 'email'])->showTitle();  // …except this one
+
+$options->group('Account', ['account'])->hideTitle();             // or the reverse, per group
+```
+
+Off means no fieldset legend and no dialog heading. A disclosure keeps its `<summary>` and a dialog
+its trigger button, since those are the controls that open them.
+
 Each step validates only its own fields; the last validates the whole schema. On completion the
 answers come three ways:
 

@@ -19,6 +19,8 @@ final class Group
 
 	/** null = inherit the form's default container. */
 	public ?Container $container = null;
+	/** null = inherit the form's default ({@see \Meraki\Schema\Html\FormOptions::$groupTitles}). */
+	public ?bool $titled = null;
 	public bool $open = false;
 	public string $trigger = 'Open';
 	public string $confirm = 'Continue';
@@ -41,5 +43,14 @@ final class Group
 	public function containerOr(Container $default): Container
 	{
 		return $this->container ?? $default;
+	}
+
+	/**
+	 * The title to draw — a fieldset's legend, a dialog's heading — or null for none. The
+	 * group's own choice wins; otherwise the form's default decides.
+	 */
+	public function titleOr(bool $shownByDefault): ?string
+	{
+		return ($this->titled ?? $shownByDefault) ? $this->title : null;
 	}
 }

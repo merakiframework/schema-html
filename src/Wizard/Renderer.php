@@ -137,6 +137,7 @@ final class Renderer
 		$w = $this->fields->theme()->widgets();
 		$elements = $this->fields->renderFields($scene, $result, $group->fieldNames);
 		$isLast = $index === $total - 1;
+		$title = $group->titleOr($scene->options->groupTitles);
 
 		if ($container === Container::Dialog) {
 			$form->append($w->dialog(new Dialog(
@@ -145,7 +146,7 @@ final class Renderer
 				trigger: $group->trigger,
 				confirm: $group->confirm,
 				close: $group->close,
-				heading: $group->title,
+				heading: $title ?? '',
 				action: $isLast ? 'submit' : 'next',
 			), $elements));
 			$this->appendState($form, $w, $store, $state, $group->fieldNames, $index);
@@ -158,10 +159,11 @@ final class Renderer
 		}
 
 		// Titled the way a single-page form titles the same group, so the container means one
-		// thing whichever flow draws it. On its own step a disclosure is shown open.
+		// thing whichever flow draws it. On its own step a disclosure is shown open, and keeps
+		// its summary: that is the control that opens it, not a title.
 		$form->append(match ($container) {
 			Container::Details => $w->details($group->title, $elements, open: true),
-			Container::Fieldset => $w->fieldset($group->title, $elements, ['class' => 'mf-group']),
+			Container::Fieldset => $w->fieldset($title, $elements, ['class' => 'mf-group']),
 		});
 
 		$this->appendState($form, $w, $store, $state, $group->fieldNames, $index);
