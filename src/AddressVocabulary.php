@@ -6,15 +6,16 @@ namespace Meraki\Schema\Html;
 use CommerceGuys\Addressing\AddressFormat\AddressFormat;
 use CommerceGuys\Addressing\AddressFormat\AddressFormatRepository;
 use CommerceGuys\Addressing\Country\CountryRepository;
-use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
 
 /**
- * The words and lists needed to render a {@see \Meraki\Schema\Field\Address}.
+ * The words needed to render a {@see \Meraki\Schema\Field\Address}, and the country names a
+ * {@see \Meraki\Schema\Field\PhoneNumber} offers.
  *
- * `meraki/schema` deliberately exposes none of this: what a country calls the thing in
- * the `administrative_area` box is a presentation concern, useless to a JSON serializer.
- * So schema-html reads the address's public `$allowed` country list and asks
- * `commerceguys/addressing` for the terms itself.
+ * Only words. What a country *asks for* — the parts it requires and uses, its subdivisions, its
+ * postcode pattern — is the core's, read from `Address::requirementsFor()`, so the form marks
+ * exactly what the server will insist on. What a country *calls* the thing in the `subdivision`
+ * box is a presentation concern the core deliberately leaves out, so it is read from
+ * `commerceguys/addressing` here.
  *
  * The rule for labels, given the countries a field allows:
  *
@@ -32,7 +33,7 @@ final class AddressVocabulary
 	 * not that a country is unusual.
 	 */
 	private const TERMS = [
-		'administrative_area' => [
+		'subdivision' => [
 			'area' => 'Area',
 			'county' => 'County',
 			'department' => 'Department',
@@ -70,7 +71,7 @@ final class AddressVocabulary
 
 	/** Used when no single country's term applies. */
 	private const NEUTRAL_TERMS = [
-		'administrative_area' => 'Administrative Area',
+		'subdivision' => 'Administrative Area',
 		'locality' => 'Locality',
 		'dependent_locality' => 'Dependent Locality',
 		'postal_code' => 'Postal Code',
@@ -81,7 +82,7 @@ final class AddressVocabulary
 	 * deliberately broad, since the field really will accept anything.
 	 */
 	private const FREE_FORM_HINTS = [
-		'administrative_area' => 'State, province, region, or territory',
+		'subdivision' => 'State, province, region, or territory',
 		'locality' => 'City, town, or suburb',
 		'dependent_locality' => 'Suburb, district, or neighbourhood',
 		'postal_code' => 'Postal code, ZIP code, or postcode',
@@ -89,8 +90,7 @@ final class AddressVocabulary
 
 	/**
 	 * The label for a sub-field, or null to leave the caller's default alone (which is
-	 * what the parts that mean the same thing everywhere — the street lines, the
-	 * organisation, the country — want).
+	 * what the parts that mean the same thing everywhere — the street, the country — want).
 	 *
 	 * @param array<string> $allowedCountries
 	 */
@@ -120,8 +120,8 @@ final class AddressVocabulary
 		$terms = $this->termsFor($localName, $allowedCountries);
 
 		// No terms with countries allowed means none of them uses this part at all (an
-		// address restricted to Singapore has no administrative area), so there is nothing
-		// to hint at — the renderer hides it. Only a free-form address gets the broad hint.
+		// address restricted to Singapore has no subdivision), so there is nothing
+		// to hint at — the layout leaves it out. Only a free-form address gets the broad hint.
 		if ($terms === []) {
 			return $allowedCountries === [] ? self::FREE_FORM_HINTS[$localName] ?? null : null;
 		}
@@ -130,61 +130,8 @@ final class AddressVocabulary
 	}
 
 	/**
-	 * Whether any of the allowed countries uses a part at all. Nothing uses every part:
-	 * Singapore has no administrative area, Hong Kong no postal code, and most countries
-	 * no dependent locality.
-	 *
-	 * @param array<string> $allowedCountries
-	 */
-	public function isUsedByAny(string $localName, array $allowedCountries): bool
-	{
-		// A free-form address makes no claim about which parts apply, so all of them do.
-		if ($allowedCountries === []) {
-			return true;
-		}
-
-		foreach ($allowedCountries as $country) {
-			if (in_array($localName, $this->usedPartsOf($country), true)) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	/**
-	 * The sub-fields a country's format actually uses, translated from libaddressinput's
-	 * field names to ours. Parts with no upstream counterpart (`country_code`) or that we
-	 * do not model (the person-name parts, `addressLine3`, `sortingCode`) are absent.
-	 *
-	 * @return array<string>
-	 */
-	private function usedPartsOf(string $country): array
-	{
-		$map = [
-			'organization' => 'organization',
-			'addressLine1' => 'line1',
-			'addressLine2' => 'line2',
-			'dependentLocality' => 'dependent_locality',
-			'locality' => 'locality',
-			'administrativeArea' => 'administrative_area',
-			'postalCode' => 'postal_code',
-		];
-
-		$used = ['country_code'];
-
-		foreach (self::formats()->get($country)->getUsedFields() as $field) {
-			if (isset($map[$field])) {
-				$used[] = $map[$field];
-			}
-		}
-
-		return $used;
-	}
-
-	/**
 	 * The distinct terms the allowed countries use for a sub-field. A country that does
-	 * not use the part at all contributes nothing — Singapore has no administrative area,
+	 * not use the part at all contributes nothing — Singapore has no subdivision,
 	 * so allowing only Singapore yields no term for it.
 	 *
 	 * @param array<string> $allowedCountries
@@ -212,7 +159,7 @@ final class AddressVocabulary
 	private function termKeyFor(string $localName, AddressFormat $format): ?string
 	{
 		return match ($localName) {
-			'administrative_area' => $format->getAdministrativeAreaType(),
+			'subdivision' => $format->getAdministrativeAreaType(),
 			'locality' => $format->getLocalityType(),
 			'dependent_locality' => $format->getDependentLocalityType(),
 			'postal_code' => $format->getPostalCodeType(),
@@ -237,30 +184,16 @@ final class AddressVocabulary
 
 	/**
 	 * Country names for the country dropdown's option labels, so it submits `AU` while
-	 * showing "Australia".
+	 * showing "Australia". Limited to the given codes when there are any, in name order.
 	 *
+	 * @param array<string> $only
 	 * @return array<string, string> code => name
 	 */
-	public function countryNames(): array
+	public function countryNames(array $only = []): array
 	{
-		return self::countries()->getList();
-	}
+		$all = self::countries()->getList();
 
-	/**
-	 * Subdivision names for the administrative-area dropdown, so it submits `QLD` while
-	 * showing "Queensland". Empty for a country with none on file.
-	 *
-	 * @return array<string, string> code => name
-	 */
-	public function subdivisionNames(string $country): array
-	{
-		return self::subdivisions()->getList([$country]);
-	}
-
-	/** The country's postal code pattern, or null if it has no postal codes at all. */
-	public function postalCodePatternFor(string $country): ?string
-	{
-		return self::formats()->get($country)->getPostalCodePattern();
+		return $only === [] ? $all : array_intersect_key($all, array_flip($only));
 	}
 
 	/**
@@ -285,13 +218,6 @@ final class AddressVocabulary
 		static $repository = null;
 
 		return $repository ??= new AddressFormatRepository();
-	}
-
-	private static function subdivisions(): SubdivisionRepository
-	{
-		static $repository = null;
-
-		return $repository ??= new SubdivisionRepository();
 	}
 
 	private static function countries(): CountryRepository

@@ -3,11 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Wizard;
 
-use Meraki\Schema\Facade;
-use Meraki\Schema\Field;
-use Meraki\Schema\Property\Name;
-use Meraki\Schema\Rule\FieldBuilder;
-use Meraki\Schema\Html\FormOptions;
+use Meraki\Schema\Definition;
+use Meraki\Schema\Html\Support\Forms;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
@@ -18,16 +15,16 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Form::class)]
 #[CoversClass(Renderer::class)]
 #[CoversClass(ConfirmationOptions::class)]
-#[CoversClass(StepOptions::class)]
+#[CoversClass(GroupOptions::class)]
 final class DialogTest extends TestCase
 {
 	#[Test]
 	public function a_normal_confirmation_step_lists_answers_inline_using_labels(): void
 	{
-		$schema = new Facade('signup');
-		$schema->addNameField('full_name');
+		$schema = new Definition('signup');
+		$schema->add($schema->createNameField('full_name'));
 
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Account', ['full_name']);
 		$options->requireConfirmation();
 
@@ -45,11 +42,13 @@ final class DialogTest extends TestCase
 	#[Test]
 	public function a_confirmation_dialog_shows_the_full_form_with_an_open_summary_dialog(): void
 	{
-		$schema = new Facade('signup');
-		$schema->addNameField('full_name');
-		$schema->addEmailAddressField('email');
+		$schema = new Definition('signup');
+		$schema->add(
+			$schema->createNameField('full_name'),
+			$schema->createEmailAddressField('email'),
+		);
 
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Details', ['full_name', 'email']);
 		$options->requireConfirmation()->asDialog(confirm: 'Place order', edit: 'Make changes');
 
@@ -74,10 +73,10 @@ final class DialogTest extends TestCase
 	#[Test]
 	public function terms_and_conditions_content_can_be_shown_in_the_confirmation_dialog(): void
 	{
-		$schema = new Facade('signup');
-		$schema->addNameField('full_name');
+		$schema = new Definition('signup');
+		$schema->add($schema->createNameField('full_name'));
 
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Details', ['full_name']);
 		$options->requireConfirmation()
 			->asDialog(confirm: 'I agree', edit: 'Cancel')
@@ -95,10 +94,10 @@ final class DialogTest extends TestCase
 	#[Test]
 	public function submitting_from_the_confirmation_completes(): void
 	{
-		$schema = new Facade('signup');
-		$schema->addNameField('full_name');
+		$schema = new Definition('signup');
+		$schema->add($schema->createNameField('full_name'));
 
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Account', ['full_name']);
 		$options->requireConfirmation();
 
@@ -112,11 +111,13 @@ final class DialogTest extends TestCase
 	#[Test]
 	public function the_final_step_runs_full_schema_validation(): void
 	{
-		$schema = new Facade('signup');
-		$schema->addNameField('full_name');
-		$schema->addEmailAddressField('email'); // required but never collected by a step
+		$schema = new Definition('signup');
+		$schema->add(
+			$schema->createNameField('full_name'),
+			$schema->createEmailAddressField('email'), // required but never collected by a step
+		);
 
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Account', ['full_name']);
 		$options->requireConfirmation();
 
@@ -130,11 +131,13 @@ final class DialogTest extends TestCase
 	#[Test]
 	public function a_failed_final_validation_surfaces_the_editable_form_on_the_confirmation(): void
 	{
-		$schema = new Facade('signup');
-		$schema->addNameField('full_name');
-		$schema->addEmailAddressField('email'); // required but never collected by a step
+		$schema = new Definition('signup');
+		$schema->add(
+			$schema->createNameField('full_name'),
+			$schema->createEmailAddressField('email'), // required but never collected by a step
+		);
 
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Account', ['full_name']);
 		$options->requireConfirmation();
 
@@ -151,13 +154,13 @@ final class DialogTest extends TestCase
 	#[Test]
 	public function the_review_step_reloads_conditional_fields_via_the_update_action(): void
 	{
-		$schema = new Facade('demo');
-		$schema->addEnumField('mode', ['simple', 'advanced'])
-			->pairWith(new Field\Text(new Name('detail')), function (FieldBuilder $rule, Field\Text $d): void {
-				$rule->when($this)->notEquals('advanced')->thenMakeOptional($d)->thenIgnore($d);
-			});
+		$schema = new Definition('demo');
+		$mode = $schema->createEnumField('mode', ['simple', 'advanced']);
+		$detail = $schema->createTextField('detail');
+		$schema->add($mode, $detail);
+		$schema->addRule($mode->when()->notEquals('advanced')->then($detail->makeOptional())->thenIgnore($detail));
 
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Mode', ['mode', 'detail']);
 		$options->requireConfirmation()->asDialog(update: 'Update');
 
@@ -182,11 +185,13 @@ final class DialogTest extends TestCase
 	#[Test]
 	public function a_step_can_be_shown_in_a_dialog(): void
 	{
-		$schema = new Facade('signup');
-		$schema->addNameField('full_name');
-		$schema->addDateField('start_date');
+		$schema = new Definition('signup');
+		$schema->add(
+			$schema->createNameField('full_name'),
+			$schema->createDateField('start_date'),
+		);
 
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Account', ['full_name']);
 		$options->group('When', ['start_date'])->asDialog(trigger: 'Pick a date', confirm: 'Set date');
 		$options->requireConfirmation();
@@ -199,5 +204,7 @@ final class DialogTest extends TestCase
 		$this->assertStringContainsString('<dialog id="mf-group-1"', $result->html);
 		$this->assertStringContainsString('>Pick a date</button>', $result->html);
 		$this->assertStringContainsString('data-name="start_date"', $result->html);
+		// headed by the step's title, as a fieldset step is by its legend
+		$this->assertStringContainsString('<dialog id="mf-group-1" class="mf-dialog"><h2 class="mf-dialog-heading">When</h2>', $result->html);
 	}
 }

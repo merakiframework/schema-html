@@ -4,8 +4,64 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6f4019c49c30efef1aa77678d952c78b",
+    "content-hash": "2f58dce2f07c8b08e608231be3533737",
     "packages": [
+        {
+            "name": "bjeavons/zxcvbn-php",
+            "version": "1.4.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/bjeavons/zxcvbn-php.git",
+                "reference": "426f664501a0747beb8f3ee17ac30c7dd6327ffa"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/bjeavons/zxcvbn-php/zipball/426f664501a0747beb8f3ee17ac30c7dd6327ffa",
+                "reference": "426f664501a0747beb8f3ee17ac30c7dd6327ffa",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "php": "^7.2 | ^8.0 | ^8.1",
+                "symfony/polyfill-mbstring": ">=1.3.1"
+            },
+            "require-dev": {
+                "php-coveralls/php-coveralls": "*",
+                "phpstan/phpstan": "^2.0",
+                "phpunit/phpunit": "^8.5",
+                "squizlabs/php_codesniffer": "3.*"
+            },
+            "suggest": {
+                "ext-gmp": "Required for optimized binomial calculations (also requires PHP >= 7.3)"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "ZxcvbnPhp\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "See contributors",
+                    "homepage": "https://github.com/bjeavons/zxcvbn-php"
+                }
+            ],
+            "description": "Realistic password strength estimation PHP library based on Zxcvbn JS",
+            "homepage": "https://github.com/bjeavons/zxcvbn-php",
+            "keywords": [
+                "password",
+                "zxcvbn"
+            ],
+            "support": {
+                "issues": "https://github.com/bjeavons/zxcvbn-php/issues",
+                "source": "https://github.com/bjeavons/zxcvbn-php/tree/1.4.2"
+            },
+            "time": "2025-02-24T16:47:20+00:00"
+        },
         {
             "name": "brick/date-time",
             "version": "0.7.1",
@@ -139,21 +195,79 @@
             "time": "2025-02-28T13:11:00+00:00"
         },
         {
-            "name": "commerceguys/addressing",
-            "version": "v2.2.5",
+            "name": "brick/money",
+            "version": "0.11.0",
             "source": {
                 "type": "git",
-                "url": "https://github.com/commerceguys/addressing.git",
-                "reference": "15b789e5e6ededaf803d23c56cdc300a94522a7c"
+                "url": "https://github.com/brick/money.git",
+                "reference": "56ffc5f08d0697a929c93e27bb672aa5eb6660fb"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/commerceguys/addressing/zipball/15b789e5e6ededaf803d23c56cdc300a94522a7c",
-                "reference": "15b789e5e6ededaf803d23c56cdc300a94522a7c",
+                "url": "https://api.github.com/repos/brick/money/zipball/56ffc5f08d0697a929c93e27bb672aa5eb6660fb",
+                "reference": "56ffc5f08d0697a929c93e27bb672aa5eb6660fb",
                 "shasum": ""
             },
             "require": {
-                "doctrine/collections": "^1.6 || ^2.0",
+                "brick/math": "~0.12.0|~0.13.0|~0.14.0",
+                "php": "^8.2",
+                "symfony/deprecation-contracts": "^2.2|^3.0"
+            },
+            "require-dev": {
+                "brick/varexporter": "0.7.0",
+                "ext-dom": "*",
+                "ext-pdo": "*",
+                "php-coveralls/php-coveralls": "^2.2",
+                "phpunit/phpunit": "^11.0",
+                "vimeo/psalm": "6.14.3"
+            },
+            "suggest": {
+                "ext-intl": "Required to format Money objects"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Brick\\Money\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Money and currency library",
+            "keywords": [
+                "brick",
+                "currency",
+                "money"
+            ],
+            "support": {
+                "issues": "https://github.com/brick/money/issues",
+                "source": "https://github.com/brick/money/tree/0.11.0"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/BenMorel",
+                    "type": "github"
+                }
+            ],
+            "time": "2026-01-22T14:33:29+00:00"
+        },
+        {
+            "name": "commerceguys/addressing",
+            "version": "v2.3.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/commerceguys/addressing.git",
+                "reference": "504ed1765d7a6788830c197390879d677f54d868"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/commerceguys/addressing/zipball/504ed1765d7a6788830c197390879d677f54d868",
+                "reference": "504ed1765d7a6788830c197390879d677f54d868",
+                "shasum": ""
+            },
+            "require": {
+                "doctrine/collections": "^1.6 || ^2.0 || ^3.0",
                 "php": ">=8.0"
             },
             "require-dev": {
@@ -198,35 +312,35 @@
             ],
             "support": {
                 "issues": "https://github.com/commerceguys/addressing/issues",
-                "source": "https://github.com/commerceguys/addressing/tree/v2.2.5"
+                "source": "https://github.com/commerceguys/addressing/tree/v2.3.1"
             },
-            "time": "2026-01-05T13:00:32+00:00"
+            "time": "2026-08-23T14:17:54+00:00"
         },
         {
             "name": "doctrine/collections",
-            "version": "2.6.0",
+            "version": "3.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/doctrine/collections.git",
-                "reference": "7713da39d8e237f28411d6a616a3dce5e20d5de2"
+                "reference": "7c2f25ed928553a3de389ccb99aa46c0eedb2d4d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/doctrine/collections/zipball/7713da39d8e237f28411d6a616a3dce5e20d5de2",
-                "reference": "7713da39d8e237f28411d6a616a3dce5e20d5de2",
+                "url": "https://api.github.com/repos/doctrine/collections/zipball/7c2f25ed928553a3de389ccb99aa46c0eedb2d4d",
+                "reference": "7c2f25ed928553a3de389ccb99aa46c0eedb2d4d",
                 "shasum": ""
             },
             "require": {
                 "doctrine/deprecations": "^1",
-                "php": "^8.1",
-                "symfony/polyfill-php84": "^1.30"
+                "php": "^8.4",
+                "symfony/polyfill-php86": "^1.36"
             },
             "require-dev": {
                 "doctrine/coding-standard": "^14",
                 "ext-json": "*",
                 "phpstan/phpstan": "^2.1.30",
                 "phpstan/phpstan-phpunit": "^2.0.7",
-                "phpunit/phpunit": "^10.5.58 || ^11.5.42 || ^12.4"
+                "phpunit/phpunit": "^12.4"
             },
             "type": "library",
             "autoload": {
@@ -270,7 +384,7 @@
             ],
             "support": {
                 "issues": "https://github.com/doctrine/collections/issues",
-                "source": "https://github.com/doctrine/collections/tree/2.6.0"
+                "source": "https://github.com/doctrine/collections/tree/3.1.0"
             },
             "funding": [
                 {
@@ -286,7 +400,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-01-15T10:01:58+00:00"
+            "time": "2026-04-29T20:41:02+00:00"
         },
         {
             "name": "doctrine/deprecations",
@@ -421,37 +535,44 @@
         },
         {
             "name": "meraki/schema",
-            "version": "v1.14.0",
+            "version": "v2.0.0-alpha.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/merakiframework/schema.git",
-                "reference": "8e6d288cc33ebdbc0c18ea8fe8c59d01d11aab07"
+                "reference": "8231c37a0736f69c71cf49cef9c7bea7a8948809"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/merakiframework/schema/zipball/8e6d288cc33ebdbc0c18ea8fe8c59d01d11aab07",
-                "reference": "8e6d288cc33ebdbc0c18ea8fe8c59d01d11aab07",
+                "url": "https://api.github.com/repos/merakiframework/schema/zipball/8231c37a0736f69c71cf49cef9c7bea7a8948809",
+                "reference": "8231c37a0736f69c71cf49cef9c7bea7a8948809",
                 "shasum": ""
             },
             "require": {
+                "bjeavons/zxcvbn-php": "^1.4",
                 "brick/date-time": "^0.7.0",
                 "brick/math": "^0.12.1",
+                "brick/money": "^0.11.0",
                 "commerceguys/addressing": "^2.0",
                 "giggsey/libphonenumber-for-php-lite": "^8.13",
                 "php": "^8.5"
             },
             "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.95",
                 "phpstan/phpstan": "^2.2",
+                "phpstan/phpstan-strict-rules": "^2.0",
                 "phpunit/phpunit": "^11.3"
             },
             "suggest": {
                 "meraki/schema-html": "Render a schema as an HTML form, normalize request input, and produce validation messages",
                 "meraki/schema-json": "Serialize a schema to JSON and back, so one definition can drive non-PHP consumers"
             },
+            "bin": [
+                "bin/schema-lang"
+            ],
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "1.14.x-dev"
+                    "dev-main": "2.0.x-dev"
                 }
             },
             "autoload": {
@@ -459,30 +580,7 @@
                     "Meraki\\Schema\\": "src/"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "Meraki\\Schema\\": "tests/"
-                }
-            },
-            "scripts": {
-                "test": [
-                    "phpunit"
-                ],
-                "test:coverage": [
-                    "@putenv XDEBUG_MODE=coverage",
-                    "phpunit --coverage-text"
-                ],
-                "analyse": [
-                    "phpstan analyse --no-progress --memory-limit=1G",
-                    "phpstan analyse -c phpstan-tests.neon --no-progress --memory-limit=1G"
-                ],
-                "ci": [
-                    "@composer validate --strict",
-                    "@composer audit",
-                    "@analyse",
-                    "@test:coverage"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -495,10 +593,10 @@
             "description": "A library that provides a flexible, UI-agnostic solution for defining, validating, and serializing form schemas that can be used across multiple rendering environments and formats.",
             "homepage": "https://github.com/merakiframework/schema",
             "keywords": [
+                "Forms",
                 "address-validation",
                 "form",
                 "form-builder",
-                "forms",
                 "phone-number",
                 "schema",
                 "ui-agnostic",
@@ -509,7 +607,7 @@
                 "issues": "https://github.com/merakiframework/schema/issues",
                 "source": "https://github.com/merakiframework/schema"
             },
-            "time": "2026-08-22T07:39:15+00:00"
+            "time": "2026-10-02T13:27:18+00:00"
         },
         {
             "name": "psr/http-message",
@@ -565,17 +663,88 @@
             "time": "2023-04-04T09:54:51+00:00"
         },
         {
-            "name": "symfony/polyfill-mbstring",
-            "version": "v1.38.2",
+            "name": "symfony/deprecation-contracts",
+            "version": "v3.7.1",
             "source": {
                 "type": "git",
-                "url": "https://github.com/symfony/polyfill-mbstring.git",
-                "reference": "d3d318bad5e7a1bfbd026009c8bfb8d8f99ae6b6"
+                "url": "https://github.com/symfony/deprecation-contracts.git",
+                "reference": "f3202fa1b5097b0af062dc978b32ecf63404e31d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/d3d318bad5e7a1bfbd026009c8bfb8d8f99ae6b6",
-                "reference": "d3d318bad5e7a1bfbd026009c8bfb8d8f99ae6b6",
+                "url": "https://api.github.com/repos/symfony/deprecation-contracts/zipball/f3202fa1b5097b0af062dc978b32ecf63404e31d",
+                "reference": "f3202fa1b5097b0af062dc978b32ecf63404e31d",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.1"
+            },
+            "type": "library",
+            "extra": {
+                "thanks": {
+                    "url": "https://github.com/symfony/contracts",
+                    "name": "symfony/contracts"
+                },
+                "branch-alias": {
+                    "dev-main": "3.7-dev"
+                }
+            },
+            "autoload": {
+                "files": [
+                    "function.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Nicolas Grekas",
+                    "email": "p@tchwork.com"
+                },
+                {
+                    "name": "Symfony Community",
+                    "homepage": "https://symfony.com/contributors"
+                }
+            ],
+            "description": "A generic function and convention to trigger deprecation notices",
+            "homepage": "https://symfony.com",
+            "support": {
+                "source": "https://github.com/symfony/deprecation-contracts/tree/v3.7.1"
+            },
+            "funding": [
+                {
+                    "url": "https://symfony.com/sponsor",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/fabpot",
+                    "type": "github"
+                },
+                {
+                    "url": "https://github.com/nicolas-grekas",
+                    "type": "github"
+                },
+                {
+                    "url": "https://tidelift.com/funding/github/packagist/symfony/symfony",
+                    "type": "tidelift"
+                }
+            ],
+            "time": "2026-06-05T06:23:12+00:00"
+        },
+        {
+            "name": "symfony/polyfill-mbstring",
+            "version": "v1.43.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/symfony/polyfill-mbstring.git",
+                "reference": "4d5d331bf731e0aedbc6b2f5e61135b7b7996a72"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/4d5d331bf731e0aedbc6b2f5e61135b7b7996a72",
+                "reference": "4d5d331bf731e0aedbc6b2f5e61135b7b7996a72",
                 "shasum": ""
             },
             "require": {
@@ -627,7 +796,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-mbstring/tree/v1.38.2"
+                "source": "https://github.com/symfony/polyfill-mbstring/tree/v1.43.0"
             },
             "funding": [
                 {
@@ -647,20 +816,20 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-05-27T06:59:30+00:00"
+            "time": "2026-09-24T15:19:04+00:00"
         },
         {
-            "name": "symfony/polyfill-php84",
-            "version": "v1.38.1",
+            "name": "symfony/polyfill-php86",
+            "version": "v1.43.0",
             "source": {
                 "type": "git",
-                "url": "https://github.com/symfony/polyfill-php84.git",
-                "reference": "f4e1dfaee5b74aba5964fe1fd4dfc7ba5e3085fa"
+                "url": "https://github.com/symfony/polyfill-php86.git",
+                "reference": "8840df45b24f33a49dc419fa18dc0057231ae1d8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-php84/zipball/f4e1dfaee5b74aba5964fe1fd4dfc7ba5e3085fa",
-                "reference": "f4e1dfaee5b74aba5964fe1fd4dfc7ba5e3085fa",
+                "url": "https://api.github.com/repos/symfony/polyfill-php86/zipball/8840df45b24f33a49dc419fa18dc0057231ae1d8",
+                "reference": "8840df45b24f33a49dc419fa18dc0057231ae1d8",
                 "shasum": ""
             },
             "require": {
@@ -678,7 +847,7 @@
                     "bootstrap.php"
                 ],
                 "psr-4": {
-                    "Symfony\\Polyfill\\Php84\\": ""
+                    "Symfony\\Polyfill\\Php86\\": ""
                 },
                 "classmap": [
                     "Resources/stubs"
@@ -698,7 +867,7 @@
                     "homepage": "https://symfony.com/contributors"
                 }
             ],
-            "description": "Symfony polyfill backporting some PHP 8.4+ features to lower PHP versions",
+            "description": "Symfony polyfill backporting some PHP 8.6+ features to lower PHP versions",
             "homepage": "https://symfony.com",
             "keywords": [
                 "compatibility",
@@ -707,7 +876,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-php84/tree/v1.38.1"
+                "source": "https://github.com/symfony/polyfill-php86/tree/v1.43.0"
             },
             "funding": [
                 {
@@ -727,10 +896,57 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-05-26T12:51:13+00:00"
+            "time": "2026-09-25T15:46:47+00:00"
         }
     ],
     "packages-dev": [
+        {
+            "name": "meraki/schema-language-english",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/merakiframework/schema-language-english.git",
+                "reference": "be7b84d6556569cc72d0e1207f4cf9306bf76987"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/merakiframework/schema-language-english/zipball/be7b84d6556569cc72d0e1207f4cf9306bf76987",
+                "reference": "be7b84d6556569cc72d0e1207f4cf9306bf76987",
+                "shasum": ""
+            },
+            "require-dev": {
+                "meraki/schema": "dev-main"
+            },
+            "default-branch": true,
+            "type": "library",
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Nathan",
+                    "email": "nbish11@hotmail.com"
+                }
+            ],
+            "description": "English messages for meraki/schema, as ICU MessageFormat 2 resources. Data only — no PHP.",
+            "homepage": "https://github.com/merakiframework/schema-language-english",
+            "keywords": [
+                "english",
+                "i18n",
+                "icu",
+                "l10n",
+                "messageformat",
+                "messages",
+                "mf2",
+                "schema"
+            ],
+            "support": {
+                "issues": "https://github.com/merakiframework/schema-language-english/issues",
+                "source": "https://github.com/merakiframework/schema-language-english"
+            },
+            "time": "2026-10-02T12:34:17+00:00"
+        },
         {
             "name": "myclabs/deep-copy",
             "version": "1.14.0",
@@ -793,16 +1009,16 @@
         },
         {
             "name": "nikic/php-parser",
-            "version": "v5.8.0",
+            "version": "v5.9.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/nikic/PHP-Parser.git",
-                "reference": "044a6a392ff8ad0d61f14370a5fbbd0a0107152f"
+                "reference": "9e33da9553fe7786f0962b35f4e4ecf01be89def"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nikic/PHP-Parser/zipball/044a6a392ff8ad0d61f14370a5fbbd0a0107152f",
-                "reference": "044a6a392ff8ad0d61f14370a5fbbd0a0107152f",
+                "url": "https://api.github.com/repos/nikic/PHP-Parser/zipball/9e33da9553fe7786f0962b35f4e4ecf01be89def",
+                "reference": "9e33da9553fe7786f0962b35f4e4ecf01be89def",
                 "shasum": ""
             },
             "require": {
@@ -844,9 +1060,9 @@
             ],
             "support": {
                 "issues": "https://github.com/nikic/PHP-Parser/issues",
-                "source": "https://github.com/nikic/PHP-Parser/tree/v5.8.0"
+                "source": "https://github.com/nikic/PHP-Parser/tree/v5.9.0"
             },
-            "time": "2026-07-04T14:30:18+00:00"
+            "time": "2026-09-13T18:51:52+00:00"
         },
         {
             "name": "phar-io/manifest",
@@ -2498,7 +2714,9 @@
     ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": {},
+    "stability-flags": {
+        "meraki/schema-language-english": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

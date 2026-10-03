@@ -85,8 +85,8 @@ final class FieldOptions implements Options
 	 * Turns browser autofill on or off for this field.
 	 *
 	 * On (the default) emits the semantic `autocomplete` token for the field's type — an
-	 * email field gets `email`, an address's parts get `address-line1`, `postal-code` and
-	 * so on — or nothing at all where no token is meaningful. Off emits
+	 * email field gets `email`, an address's street `street-address` and its postcode
+	 * `postal-code` — or nothing at all where no token is meaningful. Off emits
 	 * `autocomplete="off"`, for one-time codes and anything a browser should not remember.
 	 *
 	 * Pass a token string to override the default outright, e.g. `autocomplete('new-password')`
@@ -197,6 +197,15 @@ final class FieldOptions implements Options
 	public function inheritInNewItems(string ...$localNames): self
 	{
 		$this->root->setNestedValue([...$this->path, 'inheritInNewItems'], array_values($localNames));
+		return $this;
+	}
+
+	/**
+	 * How this field's settled parts are drawn, overriding {@see FormOptions::settledParts()}.
+	 */
+	public function settledParts(SettledPart $strategy): self
+	{
+		$this->root->setNestedValue([...$this->path, 'settledParts'], $strategy->value);
 		return $this;
 	}
 

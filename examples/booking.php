@@ -40,110 +40,103 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
-use Meraki\Schema\Field;
-use Meraki\Schema\Property\Name;
-use Meraki\Schema\Rule\FieldBuilder;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\Wizard\Form;
 use Meraki\Schema\Html\Wizard\HiddenFieldStore;
+use Meraki\Schema\Message\Mf2\Mf2Provider;
 
-function buildSchema(): Facade
+function buildSchema(): Definition
 {
-	$schema = new Facade('booking');
+	// Everything region-aware (the phone number, the pick-up address) is Australian.
+	$schema = (new Definition('booking'))->for('AU');
 
 	// 1) Account — a real app redirects to login (with return_to) here and skips this step
 	//    when already signed in; the form only records the choice. [APP-LEVEL]
-	$schema->addEnumField('account', ['user', 'guest']);
+	$account = $schema->createEnumField('account', ['user', 'guest']);
 
 	// 2) Service. [APP-LEVEL: login-gated / course / phone-only services are filtered out by
 	//    access rules before this catalogue is shown.]
-	//
-	//    The own-vehicle choice is added by, and gated on, the service: own is only offered for
-	//    an ordinary driving lesson. "Fixed to school" is expressed as a default that survives
-	//    being ignored, so a downstream rule still sees vehicle === 'school'.
-	$vehicle = new Field\Enum(new Name('vehicle'), ['school', 'own']);
-	$vehicle->prefill('school');
+	$service = $schema->createEnumField('service', ['driving-lesson', 'truck-lesson', 'car-hire']);
 
-	$schema->addEnumField('service', ['driving-lesson', 'truck-lesson', 'car-hire'])
-		->pairWith($vehicle, function (FieldBuilder $rule, Field\Enum $v): void {
-			$rule->when($this)->notEquals('driving-lesson')->thenMakeOptional($v)->thenIgnore($v);
-		});
+	// 3) Vehicle — own is only offered for an ordinary driving lesson. "Fixed to school" is a
+	//    default that survives being ignored, so a downstream rule still sees 'school'.
+	$vehicle = $schema->createEnumField('vehicle', ['school', 'own'])->defaultsTo('school');
 
 	// 4) Transmission — only for a school vehicle, and only when the service offers a choice.
-	$transmission = new Field\Enum(new Name('transmission'), ['automatic', 'manual']);
-	$transmission->prefill('automatic');
-
-	$vehicle->pairWith($transmission, function (FieldBuilder $rule, Field\Enum $t): void {
-		$rule->when($this)->notEquals('school')->thenMakeOptional($t)->thenIgnore($t);
-	});
-
-	// Truck lessons are manual-only -> hide + ignore the choice. (pairWith can't be re-applied
-	// to transmission, so this companion rule uses the declarative builder, which now has
-	// thenIgnore too; the fixed "manual" value itself is applied by the app.)
-	$schema->whenAllMatch(fn($r) => $r
-		->whenEquals('#/fields/service/value', 'truck-lesson')
-		->thenMakeOptional('#/fields/transmission')
-		->thenIgnore('#/fields/transmission'));
+	$transmission = $schema->createEnumField('transmission', ['automatic', 'manual'])->defaultsTo('automatic');
 
 	// 2b) Who is the booking for? "Someone else" reveals the participant fields and a choice of
 	//     who manages the lessons afterwards. The organiser always pays + is emailed the invoice.
-	$schema->addEnumField('who_for', ['myself', 'someone_else'])
-		->pairWith(new Field\Text(new Name('participant_name')),
-			function (FieldBuilder $rule, Field\Text $f): void {
-				$rule->when($this)->notEquals('someone_else')->thenMakeOptional($f)->thenIgnore($f);
-			});
+	$whoFor = $schema->createEnumField('who_for', ['myself', 'someone_else']);
+	$participantName = $schema->createTextField('participant_name');
 
 	// Who manages the lessons afterwards: the organiser keeps control, or the participant gets
 	// their own manage link (an account-access decision). Only relevant when booking for someone
 	// else — otherwise it's hidden + ignored (and its own step is skipped), defaulting to the
 	// organiser. It sits on its own step before the participant details so it has settled the
 	// participant-email visibility by the time that step renders.
-	$schema->addEnumField('who_manages', ['organiser', 'participant'])->makeOptional()->prefill('organiser');
-	$schema->whenAllMatch(fn($r) => $r
-		->whenNotEquals('#/fields/who_for/value', 'someone_else')
-		->thenMakeOptional('#/fields/who_manages')
-		->thenIgnore('#/fields/who_manages'));
+	$whoManages = $schema->createEnumField('who_manages', ['organiser', 'participant'])->makeOptional()->defaultsTo('organiser');
 
 	// The participant's email is only needed — and only required — when the participant manages
-	// their own lessons (to receive that manage link); otherwise it's hidden + ignored. "Show only
-	// when (someone_else AND participant)" is the negation: hide on EITHER not-equals.
-	$schema->addEmailAddressField('participant_email')->makeOptional();
-	$schema->whenAnyMatch(fn($r) => $r
-		->whenNotEquals('#/fields/who_for/value', 'someone_else')
-		->orWhenNotEquals('#/fields/who_manages/value', 'participant')
-		->thenMakeOptional('#/fields/participant_email')
-		->thenIgnore('#/fields/participant_email'));
-	$schema->whenAllMatch(fn($r) => $r
-		->whenEquals('#/fields/who_for/value', 'someone_else')
-		->andWhenEquals('#/fields/who_manages/value', 'participant')
-		->thenRequire('#/fields/participant_email'));
+	// their own lessons (to receive that manage link); otherwise it's hidden + ignored.
+	$participantEmail = $schema->createEmailAddressField('participant_email')->makeOptional();
 
-	// 5) Payer / organiser — always captured, always emailed the invoice. The phone field
-	//    is localised to AU, so a local format ("0412 345 678") is accepted, not just E.164.
-	$schema->addNameField('name');
-	$schema->addEmailAddressField('email');
-	$schema->addPhoneNumberField('phone')->allow('AU');
+	$schema->add(
+		$account,
+		$service,
+		$vehicle,
+		$transmission,
+		$whoFor,
+		$participantName,
+		$whoManages,
+		$participantEmail,
+		// 5) Payer / organiser — always captured, always emailed the invoice. The phone field
+		//    is Australian, so a local format ("0412 345 678") is accepted, not just E.164.
+		$schema->createNameField('name'),
+		$schema->createEmailAddressField('email'),
+		$schema->createPhoneNumberField('phone'),
+		// 6) Lessons — repeatable, >=1; each row is its own invoice line, with a full pick-up
+		//    address. Rows are named (lessons[row1][when]), so removing one renumbers nothing.
+		$schema->createCollectionField(
+			'lessons',
+			$schema->createDateTimeField('when'),
+			$schema->createAddressField('pickup'),
+			$schema->createTextField('notes')->makeOptional(),
+		),
+		// 7) Terms.
+		$schema->createBooleanField('terms')->mustBeAccepted(),
+	);
 
-	// 6) Lessons — repeatable, >=1; each item is its own invoice line, with a full pick-up
-	//    address (composite fields are now allowed inside collection items).
-	$schema->addCollectionField('lessons', function (Facade $item): void {
-		$item->addDateTimeField('when');
-		$item->addAddressField('pickup');
-		$item->addTextField('notes')->makeOptional();
-	})->minItems(1);
-
-	// 7) Terms.
-	$schema->addBooleanField('terms')->mustBeAccepted();
+	$schema->addRules(
+		$service->when()->notEquals('driving-lesson')->then($vehicle->makeOptional())->thenIgnore($vehicle),
+		$vehicle->when()->notEquals('school')->then($transmission->makeOptional())->thenIgnore($transmission),
+		// Truck lessons are manual-only -> hide + ignore the choice; the fixed "manual" value
+		// itself is applied by the app.
+		$service->when()->equals('truck-lesson')->then($transmission->makeOptional())->thenIgnore($transmission),
+		$whoFor->when()->notEquals('someone_else')->then($participantName->makeOptional())->thenIgnore($participantName),
+		$whoFor->when()->notEquals('someone_else')->then($whoManages->makeOptional())->thenIgnore($whoManages),
+		// "Show only when (someone_else AND participant)" is the negation: hide on EITHER not-equals…
+		$schema->anyOf(
+			$whoFor->when()->notEquals('someone_else'),
+			$whoManages->when()->notEquals('participant'),
+		)->then($participantEmail->makeOptional())->thenIgnore($participantEmail),
+		// …and require it when both hold.
+		$schema->allOf(
+			$whoFor->when()->equals('someone_else'),
+			$whoManages->when()->equals('participant'),
+		)->then($participantEmail->makeRequired()),
+	);
 
 	return $schema;
 }
 
 function buildOptions(): FormOptions
 {
-	$options = new FormOptions();
+	$options = (new FormOptions())->withMessages('en-AU', Mf2Provider::fromPackage('meraki/schema-language-english'));
 
-	$options->configureOptionsFor('account')->renderAsButtonGroup()->labelOptions([
+	// A step is titled by its group, so a step of one field asks that field as a question.
+	$options->configureOptionsFor('account')->renderAsButtonGroup()->label('Do you have an account?')->labelOptions([
 		'user' => 'I have an account',
 		'guest' => 'Continue as a guest',
 	]);
@@ -156,11 +149,11 @@ function buildOptions(): FormOptions
 		'myself'       => 'Myself',
 		'someone_else' => 'Someone else',
 	]);
-	$options->configureOptionsFor('vehicle')->renderAsDropdown()->labelOptions([
+	$options->configureOptionsFor('vehicle')->renderAsDropdown()->label('Which vehicle will you learn in?')->labelOptions([
 		'school' => 'School vehicle',
 		'own'    => 'My own vehicle',
 	]);
-	$options->configureOptionsFor('transmission')->renderAsDropdown()->labelOptions([
+	$options->configureOptionsFor('transmission')->renderAsDropdown()->label('Which transmission?')->labelOptions([
 		'automatic' => 'Automatic',
 		'manual'    => 'Manual',
 	]);
@@ -177,7 +170,7 @@ function buildOptions(): FormOptions
 	$options->configureOptionsFor('participant_email')->label('Participant\'s email')
 		->hint('Required if the participant manages their own lessons');
 	$options->configureOptionsFor('phone')->hint('e.g. 0412 345 678');
-	$options->configureOptionsFor('lessons')
+	$options->configureOptionsFor('lessons')->label('Lessons to book')
 		->addInDialog(trigger: 'Add another lesson', confirm: 'Add lesson')
 		->inheritInNewItems('pickup', 'notes');
 	$options->configureOptionsFor('terms')->label('I accept the terms and conditions');
@@ -204,7 +197,9 @@ function page(string $body): string
 		body { font: 16px/1.5 system-ui, sans-serif; max-width: 34rem; margin: 3rem auto; padding: 0 1rem; }
 		.field { margin: 0 0 1rem; }
 		.field label { display: block; font-weight: 600; }
-		input, select, textarea { font: inherit; padding: .35rem; min-width: 16rem; }
+		input, select, textarea { font: inherit; padding: .35rem; }
+		input:not([type=radio], [type=checkbox]), select, textarea { min-width: 16rem; }
+		.field .mf-radio, .field .mf-button { display: block; font-weight: normal; }
 		.errors p { color: #b00020; margin: .25rem 0 0; }
 		.wizard-nav, .mf-dialog-actions { display: flex; gap: .5rem; margin-top: 1rem; }
 		button { font: inherit; padding: .45rem 1rem; cursor: pointer; }
@@ -319,7 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	// On completion this is the payment payload that would be POSTed to the payment service.
 	$body = $result->completed
 		? '<h1>Ready for payment</h1><p>This payload would be handed to the payment service:</p><pre>'
-			. htmlspecialchars(json_encode($result->data, JSON_PRETTY_PRINT) ?: '', ENT_QUOTES)
+			. htmlspecialchars(json_encode($result->payload, JSON_PRETTY_PRINT) ?: '', ENT_QUOTES)
 			. '</pre><p><a href="/">Start again</a></p>'
 		: $result->html;
 } else {

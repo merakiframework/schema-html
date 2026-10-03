@@ -71,8 +71,8 @@ final class SignedHiddenFieldStore implements StateStore
 		$inputs[] = new Element('input', [
 			'type' => 'hidden',
 			'name' => '__wizard[carried]',
-			// JSON rather than a delimited list: nothing constrains a field name
-			// (Property\Name accepts any string), so no separator is safe to assume.
+			// JSON rather than a delimited list: a carried name is a bracketed input name
+			// (`lessons[row1][date]`), and JSON needs no separator to be safe.
 			'value' => (string) json_encode($names, JSON_THROW_ON_ERROR),
 		]);
 

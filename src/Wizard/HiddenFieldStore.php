@@ -35,8 +35,8 @@ final class HiddenFieldStore implements StateStore
 	}
 
 	/**
-	 * Flattens nested (composite) values to bracketed input names, e.g.
-	 * ['address' => ['street' => 'x']] => ['address[street]' => 'x']. Empty and
+	 * Flattens nested values (a structured field's parts, a collection's rows) to bracketed
+	 * input names, e.g. ['address' => ['locality' => 'x']] => ['address[locality]' => 'x']. Empty and
 	 * null values are dropped (nothing to carry).
 	 *
 	 * Public so {@see SignedHiddenFieldStore} can sign and re-derive exactly the
@@ -63,7 +63,8 @@ final class HiddenFieldStore implements StateStore
 				continue;
 			}
 
-			$flat[$name] = (string) $value;
+			// Carried the way a checkbox submits it, so the next request reads it back the same.
+			$flat[$name] = is_bool($value) ? ($value ? 'on' : '0') : (string) $value;
 		}
 
 		return $flat;

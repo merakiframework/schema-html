@@ -3,9 +3,16 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Wizard;
 
-use Meraki\Schema\Facade;
+use Closure;
+use Meraki\Schema\Definition;
+use Meraki\Schema\Field\Collection;
+use Meraki\Schema\FieldResult;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\Input;
+use Meraki\Schema\Html\Presentation\RuleEffects;
+use Meraki\Schema\Html\Request\PayloadMapper;
+use Meraki\Schema\SchemaValidationResult;
+use stdClass;
 
 /**
  * Convenience driver tying a schema, its form options (which carry the steps), and
@@ -18,11 +25,12 @@ use Meraki\Schema\Html\Input;
 final class Form
 {
 	public function __construct(
-		private readonly Facade $schema,
+		private readonly Definition $schema,
 		private readonly FormOptions $options,
 		private readonly StateStore $store,
 		private readonly Renderer $renderer = new Renderer(),
 		private readonly Validator $validator = new Validator(),
+		private readonly PayloadMapper $mapper = new PayloadMapper(),
 	) {}
 
 	/**
@@ -42,7 +50,7 @@ final class Form
 	 */
 	public function handle(array $request): Result
 	{
-		// Normalize PHP request quirks (empty strings -> null, 'on' -> true) so an
+		// Normalize the one request quirk every form has (an untouched box submits '') so an
 		// optional field submitted empty is skipped, not validated as a bad value.
 		$request = (new Input($request))->toArray();
 
@@ -89,21 +97,21 @@ final class Form
 
 		// The last group validates the whole schema (catching anything earlier groups
 		// missed); earlier groups validate only their own fields.
-		if ($isLast) {
-			RuleScopes::rewind($this->schema);
-			$result = $this->schema->validate($state->data);
-		} else {
-			$result = $this->validator->validateGroup($this->schema, $groups[$index], $state->data);
-		}
+		$payload = $this->mapper->map($this->schema, $state->data);
+		$result = $isLast
+			? $this->schema->validate($payload)
+			: $this->validator->validateGroup($this->schema, $groups[$index], $payload);
 
 		if (!$this->validator->passed($result)) {
+			$target = $isLast && !$groups[$index]->confirmation ? $this->stepHolding($result) ?? $index : $index;
+
 			return Result::render(
-				$this->renderer->render($this->schema, $this->options, $this->store, $state, $result),
+				$this->renderer->render($this->schema, $this->options, $this->store, $state->movedTo($target), $result),
 			);
 		}
 
 		if ($isLast) {
-			return Result::completed($state->data);
+			return Result::completed($state->data, $result, self::accepted($payload, $result->forField(...)));
 		}
 
 		$target = $this->renderer->resolveVisibleIndex($this->schema, $this->options, $state->data, $index + 1, 1);
@@ -111,6 +119,65 @@ final class Form
 		return Result::render(
 			$this->renderer->render($this->schema, $this->options, $this->store, $state->movedTo($target)),
 		);
+	}
+
+	/**
+	 * The first step drawing a field that failed.
+	 *
+	 * The last step validates the whole schema, so it can be the first to see a failure on an
+	 * earlier step — one a rule skipped, or one whose field a later answer made required.
+	 * Re-drawing the last step would show nothing wrong and the form could not be submitted, so
+	 * it goes back to where the failure can be seen and fixed. (A review step draws the whole
+	 * form with its errors, so it has no need to.)
+	 */
+	private function stepHolding(SchemaValidationResult $result): ?int
+	{
+		foreach ($this->options->groups as $index => $group) {
+			foreach ($group->fieldNames as $name) {
+				if ($result->forField($name)?->status->failed()) {
+					return $index;
+				}
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * The payload the schema judged, less the fields its rules ignored — at the top level and in
+	 * each collection row, where a row rule may ignore a field of its own.
+	 *
+	 * The core withholds what was submitted for an ignored field and validates it as empty, so
+	 * handing it on would pass along an answer nobody accepted: a participant's name typed before
+	 * switching back to booking for yourself.
+	 *
+	 * @param Closure(string): ?FieldResult $resultFor
+	 */
+	private static function accepted(object $record, Closure $resultFor): object
+	{
+		$accepted = new stdClass();
+
+		foreach (get_object_vars($record) as $name => $value) {
+			$result = $resultFor((string) $name);
+
+			if ($result !== null && RuleEffects::of($result)->ignored) {
+				continue;
+			}
+
+			if ($result instanceof Collection\Result && is_array($value)) {
+				foreach ($value as $key => $row) {
+					$item = $result->itemAt((string) $key);
+
+					if (is_object($row) && $item !== null) {
+						$value[$key] = self::accepted($row, $item->forField(...));
+					}
+				}
+			}
+
+			$accepted->{$name} = $value;
+		}
+
+		return $accepted;
 	}
 
 	/**
@@ -138,7 +205,7 @@ final class Form
 	}
 
 	/**
-	 * Removes each collection's draft "add" row (marked by `__draft[<field>]=<index>`)
+	 * Removes each collection's draft "add" row (marked by `__draft[<field>]=<row>`)
 	 * unless that field's own add action committed it. Keeps a prefilled/inherited draft
 	 * from becoming a phantom item or surviving a remove.
 	 *
@@ -154,15 +221,14 @@ final class Form
 			return $request;
 		}
 
-		foreach ($drafts as $field => $index) {
+		foreach ($drafts as $field => $row) {
 			// The field being explicitly added keeps its draft — that IS the new item.
 			if ($action === 'add:' . $field) {
 				continue;
 			}
 
-			if (isset($request[$field]) && is_array($request[$field])) {
-				unset($request[$field][(int) $index]);
-				$request[$field] = array_values($request[$field]);
+			if (is_string($row) && isset($request[$field]) && is_array($request[$field])) {
+				unset($request[$field][$row]);
 			}
 		}
 

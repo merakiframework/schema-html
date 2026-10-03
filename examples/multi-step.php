@@ -8,8 +8,8 @@ declare(strict_types=1);
  *
  * then open http://localhost:8000/. It shows:
  *   - a multi-step wizard (state carried in hidden inputs; no session)
- *   - contact_method as a customizable <select> (renderAsSelect), paired (pairWith)
- *     to email/phone so only the chosen branch is required and shown
+ *   - contact_method as a customizable <select> (renderAsSelect), with rules on
+ *     email/phone so only the chosen branch is required and shown
  *   - a repeatable lessons collection (add/remove), "Add a lesson" opening a native
  *     <dialog> via the command-invoker API
  *   - an optional "notes" field revealed inline via <details> (revealInline)
@@ -22,45 +22,44 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
-use Meraki\Schema\Field;
-use Meraki\Schema\Property\Name;
-use Meraki\Schema\Rule\FieldBuilder;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\Wizard\Form;
 use Meraki\Schema\Html\Wizard\HiddenFieldStore;
+use Meraki\Schema\Message\Mf2\Mf2Provider;
 
-function buildSchema(): Facade
+function buildSchema(): Definition
 {
-	$schema = new Facade('booking');
-	$schema->addNameField('name');
+	$schema = new Definition('booking');
 
-	// One enum, paired to the two contact fields. Only the chosen branch stays
-	// required; the other is made optional + ignored (and hidden by the default hook).
-	$schema->addEnumField('contact_method', ['email', 'phone'])
-		->pairWith(new Field\EmailAddress(new Name('email_address')),
-			function (FieldBuilder $rule, Field\EmailAddress $email): void {
-				$rule->when($this)->notEquals('email')->thenMakeOptional($email)->thenIgnore($email);
-			})
-		->pairWith(new Field\PhoneNumber(new Name('phone_number')),
-			function (FieldBuilder $rule, Field\PhoneNumber $phone): void {
-				$rule->when($this)->notEquals('phone')->thenMakeOptional($phone)->thenIgnore($phone);
-			});
+	$contactMethod = $schema->createEnumField('contact_method', ['email', 'phone']);
+	$email = $schema->createEmailAddressField('email_address');
+	$phone = $schema->createPhoneNumberField('phone_number', ['AU']);
 
-	$schema->addCollectionField('lessons', function (Facade $item): void {
-		$item->addDateField('date');
-		$item->addTimeField('time');
-	})->minItems(1);
+	$schema->add(
+		$schema->createNameField('name'),
+		$contactMethod,
+		$email,
+		$phone,
+		// Rows are named (lessons[row1][date]); the form names each new one.
+		$schema->createCollectionField('lessons', $schema->createDateField('date'), $schema->createTimeField('time')),
+		$schema->createTextField('notes')->makeOptional(),
+		$schema->createBooleanField('terms')->mustBeAccepted(),
+	);
 
-	$schema->addTextField('notes')->makeOptional();
-	$schema->addBooleanField('terms')->mustBeAccepted();
+	// Only the chosen branch stays required; the other is made optional + ignored (and
+	// hidden by the default hook).
+	$schema->addRules(
+		$contactMethod->when()->notEquals('email')->then($email->makeOptional())->thenIgnore($email),
+		$contactMethod->when()->notEquals('phone')->then($phone->makeOptional())->thenIgnore($phone),
+	);
 
 	return $schema;
 }
 
 function buildOptions(): FormOptions
 {
-	$options = new FormOptions();
+	$options = (new FormOptions())->withMessages('en-AU', Mf2Provider::fromPackage('meraki/schema-language-english'));
 
 	$options->configureOptionsFor('contact_method')->renderAsSelect();
 	$options->configureOptionsFor('lessons')->addInDialog(trigger: 'Add a lesson', confirm: 'Add lesson');
@@ -110,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 	$body = $result->completed
 		? '<h1>Booked!</h1><p>We received your booking:</p><pre>'
-			. htmlspecialchars(json_encode($result->data, JSON_PRETTY_PRINT) ?: '', ENT_QUOTES)
+			. htmlspecialchars(json_encode($result->payload, JSON_PRETTY_PRINT) ?: '', ENT_QUOTES)
 			. '</pre><p><a href="/">Start again</a></p>'
 		: $result->html;
 } else {

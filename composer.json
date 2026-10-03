@@ -16,19 +16,20 @@
             "options": {
                 "symlink": true
             }
-        },
-        {
-            "type": "vcs",
-            "url": "https://github.com/merakiframework/schema.git"
         }
     ],
     "require": {
         "php": "^8.5",
-        "meraki/schema": "^1.14",
+        "commerceguys/addressing": "^2.0",
+        "meraki/schema": "^2.0.0-alpha.3",
         "psr/http-message": "^1.1 || ^2.0"
     },
     "require-dev": {
+        "meraki/schema-language-english": "dev-main",
         "phpunit/phpunit": "^11.3"
+    },
+    "suggest": {
+        "meraki/schema-language-english": "English wording for validation messages. A message pack is required; this is the published English one."
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
@@ -43,6 +44,14 @@
         }
     },
     "scripts": {
-        "test": "phpunit"
+        "test": "phpunit",
+        "serve": [
+            "Composer\\Config::disableProcessTimeout",
+            "php -S 0.0.0.0:8000 -t examples"
+        ]
+    },
+    "scripts-descriptions": {
+        "test": "Run the test suite.",
+        "serve": "Serve the examples on port 8000."
     }
 }

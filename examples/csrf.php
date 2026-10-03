@@ -18,22 +18,26 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\Csrf\SynchroniserToken;
 use Meraki\Schema\Html\Csrf\TokenMismatch;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\FormRenderer;
 use Meraki\Schema\Html\Input;
+use Meraki\Schema\Html\Request\PayloadMapper;
 use Meraki\Schema\Html\Wizard\SessionStorage;
+use Meraki\Schema\Message\Mf2\Mf2Provider;
 
 session_start();
 
-function buildSchema(): Facade
+function buildSchema(): Definition
 {
-	$schema = new Facade('signup');
-	$schema->addNameField('name');
-	$schema->addEmailAddressField('email');
-	$schema->addEnumField('plan', ['free', 'pro']);
+	$schema = new Definition('signup');
+	$schema->add(
+		$schema->createNameField('name'),
+		$schema->createEmailAddressField('email'),
+		$schema->createEnumField('plan', ['free', 'pro']),
+	);
 
 	return $schema;
 }
@@ -44,6 +48,7 @@ $schema = buildSchema();
 // must already be started (above).
 $options = (new FormOptions())
 	->postTo('/csrf.php')
+	->withMessages('en', Mf2Provider::fromPackage('meraki/schema-language-english'))
 	->withCsrfProtection(new SynchroniserToken(new SessionStorage()));
 
 $renderer = new FormRenderer();
@@ -85,8 +90,8 @@ try {
 	exit;
 }
 
-$input = Input::fromGlobals();
-$result = $schema->validate($input->toArray());
+$payload = (new PayloadMapper())->map($schema, Input::fromGlobals());
+$result = $schema->validate($payload);
 
 if ($result->anyFailed()) {
 	echo page('<h1>Sign up</h1>' . $renderer->render($schema, $options, $result));
@@ -95,6 +100,6 @@ if ($result->anyFailed()) {
 
 echo page(
 	'<h1>Signed up!</h1><pre>'
-	. htmlspecialchars((string) json_encode($input->toArray(), JSON_PRETTY_PRINT), ENT_QUOTES)
+	. htmlspecialchars((string) json_encode($payload, JSON_PRETTY_PRINT), ENT_QUOTES)
 	. '</pre><p><a href="/csrf.php">Start again</a></p>',
 );

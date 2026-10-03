@@ -3,8 +3,11 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html;
 
-use Meraki\Schema\Facade;
-use Meraki\Schema\Field\Address\Type as AddressType;
+use Meraki\Schema\Definition;
+use Meraki\Schema\Field\Address\Precision;
+use Meraki\Schema\Html\Presentation\Layout\AddressLayout;
+use Meraki\Schema\Html\Support\Forms;
+use Meraki\Schema\Html\Theme\Renderer\StructuredFieldRenderer;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -14,7 +17,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[Group('html')]
 #[CoversClass(FormRenderer::class)]
 #[CoversClass(AddressVocabulary::class)]
-#[CoversClass(ValidationMessages::class)]
+#[CoversClass(AddressLayout::class)]
+#[CoversClass(StructuredFieldRenderer::class)]
 final class AddressRenderTest extends TestCase
 {
 	// Labels follow the country when exactly one is allowed.
@@ -35,11 +39,11 @@ final class AddressRenderTest extends TestCase
 	{
 		return [
 			'Australia calls it a suburb' => ['AU', 'locality', 'Suburb'],
-			'Australia calls it a state' => ['AU', 'administrative_area', 'State'],
+			'Australia calls it a state' => ['AU', 'subdivision', 'State'],
 			'the United States calls it a city' => ['US', 'locality', 'City'],
 			'the United States has ZIP codes' => ['US', 'postal_code', 'ZIP Code'],
-			'Japan has prefectures' => ['JP', 'administrative_area', 'Prefecture'],
-			'Ireland has counties' => ['IE', 'administrative_area', 'County'],
+			'Japan has prefectures' => ['JP', 'subdivision', 'Prefecture'],
+			'Ireland has counties' => ['IE', 'subdivision', 'County'],
 			'Ireland has eircodes' => ['IE', 'postal_code', 'Eircode'],
 		];
 	}
@@ -73,9 +77,9 @@ final class AddressRenderTest extends TestCase
 	{
 		$html = $this->render(['billing' => 'AU']);
 
-		$this->assertMatchesRegularExpression('/<select[^>]*name="billing\[administrative_area\]"/', $html);
-		$this->assertStringContainsString('<option value="QLD">Queensland</option>', $html);
-		$this->assertStringContainsString('<option value="NSW">New South Wales</option>', $html);
+		$this->assertMatchesRegularExpression('/<select[^>]*name="billing\[subdivision\]"/', $html);
+		$this->assertStringContainsString('<option value="AU-QLD">Queensland</option>', $html);
+		$this->assertStringContainsString('<option value="AU-NSW">New South Wales</option>', $html);
 	}
 
 	/**
@@ -87,22 +91,50 @@ final class AddressRenderTest extends TestCase
 	{
 		$html = $this->render(['billing' => ['AU', 'CA']]);
 
-		$this->assertMatchesRegularExpression('/<input[^>]*name="billing\[administrative_area\]"/', $html);
-		$this->assertMatchesRegularExpression('/<select[^>]*name="billing\[country_code\]"/', $html);
+		$this->assertMatchesRegularExpression('/<input[^>]*name="billing\[subdivision\]"/', $html);
+		$this->assertMatchesRegularExpression('/<select[^>]*name="billing\[country\]"/', $html);
 		$this->assertStringContainsString('<option value="AU">Australia</option>', $html);
+	}
+
+	/** The country dropdown offers only the countries the field allows. */
+	#[Test]
+	public function the_country_dropdown_is_limited_to_the_allowed_countries(): void
+	{
+		$html = $this->render(['billing' => ['AU', 'CA']]);
+
+		$this->assertStringContainsString('<option value="CA">Canada</option>', $html);
+		$this->assertStringNotContainsString('<option value="US">', $html);
 	}
 
 	// A country the whitelist has settled.
 
 	#[Test]
-	public function a_determined_country_is_hidden_but_still_submitted(): void
+	public function a_settled_country_is_left_out_of_the_form_by_default(): void
 	{
 		$html = $this->render(['billing' => 'AU']);
 
-		// hidden on the wrapper as well, so it is gone for screen readers too
-		$this->assertMatchesRegularExpression('/data-name="billing\.country_code" hidden/', $html);
-		// ...yet the select is present and carries the value, so the country is submitted
-		$this->assertMatchesRegularExpression('/<select[^>]*name="billing\[country_code\]"[^>]*hidden/', $html);
+		$this->assertStringNotContainsString('name="billing[country]"', $html);
+	}
+
+	#[Test]
+	public function a_settled_country_can_be_carried_in_a_hidden_input_instead(): void
+	{
+		$options = Forms::options()->settledParts(SettledPart::Hidden);
+
+		$html = $this->render(['billing' => 'AU'], $options);
+
+		$this->assertStringContainsString('<input type="hidden" name="billing[country]" value="AU">', $html);
+	}
+
+	#[Test]
+	public function a_settled_country_can_be_shown_like_any_other_part(): void
+	{
+		$options = Forms::options();
+		$options->configureOptionsFor('billing')->settledParts(SettledPart::Visible);
+
+		$html = $this->render(['billing' => 'AU'], $options);
+
+		$this->assertMatchesRegularExpression('/<select[^>]*name="billing\[country\]"/', $html);
 		$this->assertStringContainsString('<option value="AU" selected>Australia</option>', $html);
 	}
 
@@ -112,20 +144,86 @@ final class AddressRenderTest extends TestCase
 	 */
 	#[Test]
 	#[DataProvider('unusedParts')]
-	public function it_hides_a_part_no_allowed_country_uses(string $country, string $part): void
+	public function it_leaves_out_a_part_no_allowed_country_uses(string $country, string $part): void
 	{
 		$html = $this->render(['billing' => $country]);
 
-		$this->assertMatchesRegularExpression('/data-name="billing\.' . $part . '" hidden/', $html);
+		$this->assertStringNotContainsString('name="billing[' . $part . ']"', $html);
 	}
 
 	public static function unusedParts(): array
 	{
 		return [
-			'Singapore has no administrative area' => ['SG', 'administrative_area'],
+			'Singapore has no subdivision' => ['SG', 'subdivision'],
 			'Hong Kong has no postal code' => ['HK', 'postal_code'],
 			'Australia has no dependent locality' => ['AU', 'dependent_locality'],
 		];
+	}
+
+	// Which parts are required.
+
+	/**
+	 * The street is one part holding a list of lines, drawn as one textarea showing as many rows
+	 * as the core accepts lines.
+	 */
+	#[Test]
+	public function the_street_is_drawn_as_a_textarea_of_three_rows(): void
+	{
+		$html = $this->render(['billing' => 'AU']);
+
+		$this->assertMatchesRegularExpression(
+			'/<textarea id="[^"]*-street" name="billing\[street\]" rows="3"[^>]*required[^>]*autocomplete="street-address"><\/textarea>/',
+			$html,
+		);
+	}
+
+	/**
+	 * A field that asks only for a locality is a service area, not a delivery address: the core
+	 * would accept a street, but the form does not ask for one.
+	 */
+	#[Test]
+	public function parts_below_the_fields_precision_are_not_asked_for(): void
+	{
+		$schema = new Definition('checkout');
+		$schema->add($schema->createAddressField('area', ['AU'])->minPrecisionOf(Precision::Locality));
+
+		$html = (new FormRenderer())->render($schema, Forms::options());
+
+		$this->assertStringNotContainsString('name="area[street]', $html);
+		$this->assertMatchesRegularExpression('/name="area\[locality\]"[^>]*required/', $html);
+		$this->assertMatchesRegularExpression('/name="area\[postal_code\]"[^>]*required/', $html);
+	}
+
+	/** Marked from the core's own answer, so the form promises exactly what the server checks. */
+	#[Test]
+	public function the_parts_a_country_requires_are_marked_required(): void
+	{
+		$html = $this->render(['billing' => 'AU']);
+
+		$this->assertMatchesRegularExpression('/name="billing\[locality\]"[^>]*required/', $html);
+		$this->assertMatchesRegularExpression('/name="billing\[postal_code\]"[^>]*required/', $html);
+		$this->assertMatchesRegularExpression('/name="billing\[subdivision\]"[^>]*required/', $html);
+	}
+
+	/** Japan does not require a locality, Australia does: only what both require is marked. */
+	#[Test]
+	public function only_what_every_allowed_country_requires_is_marked(): void
+	{
+		$html = $this->render(['billing' => ['AU', 'JP']]);
+
+		$this->assertMatchesRegularExpression('/name="billing\[postal_code\]"[^>]*required/', $html);
+		$this->assertDoesNotMatchRegularExpression('/name="billing\[locality\]"[^>]*required/', $html);
+	}
+
+	#[Test]
+	public function nothing_is_marked_required_on_an_optional_address(): void
+	{
+		$schema = new Definition('checkout');
+		$schema->add($schema->createAddressField('billing', ['AU'])->makeOptional());
+
+		$html = (new FormRenderer())->render($schema, Forms::options());
+
+		$this->assertDoesNotMatchRegularExpression('/name="billing\[[a-z0-9_]+\]"[^>]*required/', $html);
 	}
 
 	// Postal code input hints.
@@ -157,6 +255,19 @@ final class AddressRenderTest extends TestCase
 		return [['CA'], ['IE'], ['NL'], ['GB']];
 	}
 
+	/**
+	 * Some of China's subdivisions replace its postcode pattern with their own, and the browser
+	 * cannot know the subdivision yet: a `pattern` would refuse codes the server accepts.
+	 */
+	#[Test]
+	public function it_hints_no_postal_code_format_where_a_subdivision_has_its_own(): void
+	{
+		$html = $this->render(['billing' => 'CN']);
+
+		$this->assertMatchesRegularExpression('/name="billing\[postal_code\]"/', $html);
+		$this->assertDoesNotMatchRegularExpression('/name="billing\[postal_code\]"[^>]*pattern=/', $html);
+	}
+
 	/** With several countries allowed we cannot know whose format applies yet. */
 	#[Test]
 	public function it_hints_no_postal_code_format_when_several_countries_are_allowed(): void
@@ -169,35 +280,92 @@ final class AddressRenderTest extends TestCase
 	// Messages.
 
 	#[Test]
-	public function it_reports_address_failures_in_terms_of_the_address_not_the_underlying_types(): void
+	public function it_reports_each_failure_against_the_part_it_is_about(): void
 	{
-		$schema = new Facade('checkout');
-		$schema->addAddressField('billing', ['AU'])->ofType(AddressType::Physical);
+		$schema = new Definition('checkout');
+		$schema->add($schema->createAddressField('billing', ['AU'])->mustBeVisitable());
 
-		$result = $schema->validate(['billing' => [
-			'line1' => 'PO Box 12',
-			'administrative_area' => 'QLD',
+		$result = $schema->validate((object) ['billing' => (object) [
+			'street' => ['PO Box 12'],
+			'locality' => 'Brisbane',
+			'subdivision' => 'QLD',
 			'postal_code' => 'not-a-postcode',
+			'country' => 'AU',
 		]]);
 
-		$html = (new FormRenderer())->render($schema, null, $result);
+		$html = (new FormRenderer())->render($schema, Forms::options(), $result);
 
-		$this->assertStringContainsString('a PO box or bag service is not somewhere that can be visited', $html);
-		$this->assertStringContainsString('Enter a valid postal code for the country selected', $html);
-		// the omitted suburb reads as missing, not as a type mismatch
-		$this->assertStringContainsString('This is required', $html);
-		$this->assertStringNotContainsString('A valid text must be a string', $html);
+		$this->assertMatchesRegularExpression(
+			'/name="billing\[street\]"[^>]*>(?:(?!data-name).)*a PO box or bag service is not somewhere that can be visited/s',
+			$html,
+		);
+		$this->assertMatchesRegularExpression(
+			'/name="billing\[postal_code\]"[^>]*>(?:(?!data-name).)*That is not a valid postal code for the country you chose\./s',
+			$html,
+		);
 	}
 
-	/** @param array<string, string|array<string>> $addressFields name => allowed countries */
-	private function render(array $addressFields): string
+	/** The country asks for a postcode, so leaving it out is reported against that box. */
+	#[Test]
+	public function a_required_part_that_was_left_out_is_reported_against_it(): void
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
+		$schema->add($schema->createAddressField('billing', ['AU']));
+		$wire = ['billing' => ['street' => "1 Queen St\r\n", 'locality' => 'Brisbane', 'subdivision' => 'AU-QLD']];
+
+		$result = $schema->validate((new Request\PayloadMapper())->map($schema, $wire));
+		$html = (new FormRenderer())->render($schema, Forms::options(), $result);
+
+		$this->assertMatchesRegularExpression(
+			'/name="billing\[postal_code\]"[^>]*>(?:(?!data-name).)*Enter a postal code\./s',
+			$html,
+		);
+		$this->assertMatchesRegularExpression('/name="billing\[street\]"[^>]*>1 Queen St<\/textarea>/', $html);
+		$this->assertStringContainsString('<option value="AU-QLD" selected>Queensland</option>', $html);
+	}
+
+	/** A prefilled address is drawn from its value: a line per street line, and the subdivision's code. */
+	#[Test]
+	public function a_prefilled_address_draws_each_line(): void
+	{
+		$schema = new Definition('checkout');
+		$schema->add($schema->createAddressField('billing', ['AU']));
+
+		$result = $schema->resolve(prefilledWith: (object) ['billing' => (object) [
+			'street' => ['Level 2', '1 Queen St'],
+			'locality' => 'Brisbane',
+			'subdivision' => 'Queensland',
+			'postal_code' => '4000',
+			'country' => 'AU',
+		]]);
+		$html = (new FormRenderer())->render($schema, Forms::options(), $result);
+
+		$this->assertMatchesRegularExpression('/name="billing\[street\]"[^>]*>Level 2\n1 Queen St<\/textarea>/', $html);
+		$this->assertStringContainsString('<option value="AU-QLD" selected>Queensland</option>', $html);
+	}
+
+	#[Test]
+	public function an_address_that_was_not_filled_in_reads_as_missing(): void
+	{
+		$schema = new Definition('checkout');
+		$schema->add($schema->createAddressField('billing', ['AU']));
+
+		$html = (new FormRenderer())->render($schema, Forms::options(), $schema->validate((object) []));
+
+		$this->assertStringContainsString('<p>This is required.</p>', $html);
+	}
+
+	/**
+	 * @param array<string, string|array<string>> $addressFields name => allowed countries
+	 */
+	private function render(array $addressFields, ?FormOptions $options = null): string
+	{
+		$schema = new Definition('checkout');
 
 		foreach ($addressFields as $name => $countries) {
-			$schema->addAddressField($name, is_array($countries) ? $countries : [$countries]);
+			$schema->add($schema->createAddressField($name, is_array($countries) ? $countries : [$countries]));
 		}
 
-		return (new FormRenderer())->render($schema);
+		return (new FormRenderer())->render($schema, $options ?? Forms::options());
 	}
 }

@@ -3,11 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Wizard;
 
-use Meraki\Schema\Facade;
-use Meraki\Schema\Field;
-use Meraki\Schema\Property\Name;
-use Meraki\Schema\Rule\FieldBuilder;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\FormOptions;
+use Meraki\Schema\Html\Support\Forms;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
@@ -25,19 +23,21 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Result::class)]
 final class WizardTest extends TestCase
 {
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('signup');
-		$schema->addNameField('name');
-		$schema->addEmailAddressField('email');
-		$schema->addEnumField('plan', ['free', 'pro']);
+		$schema = new Definition('signup');
+		$schema->add(
+			$schema->createNameField('name'),
+			$schema->createEmailAddressField('email'),
+			$schema->createEnumField('plan', ['free', 'pro']),
+		);
 
 		return $schema;
 	}
 
 	private function options(): FormOptions
 	{
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Account', ['name']);
 		$options->group('Contact', ['email']);
 		$options->group('Plan', ['plan']);
@@ -88,8 +88,7 @@ final class WizardTest extends TestCase
 		$bad = $form->handle(['name' => '', '__wizard' => ['step' => '0', 'action' => 'next']]);
 		$this->assertFalse($bad->completed);
 		$this->assertStringContainsString('name="__wizard[step]" value="0"', $bad->html);
-		$this->assertStringContainsString('<div class="errors">', $bad->html);
-		$this->assertStringContainsString('<p>', $bad->html);
+		$this->assertStringContainsString('<div class="errors"><p>This is required.</p></div>', $bad->html);
 
 		// A valid name advances to step 1, even though the later required email is empty.
 		$good = $form->handle(['name' => 'Alice Smith', '__wizard' => ['step' => '0', 'action' => 'next']]);
@@ -130,6 +129,154 @@ final class WizardTest extends TestCase
 		$this->assertSame('Alice Smith', $result->data['name']);
 		$this->assertSame('alice@example.com', $result->data['email']);
 		$this->assertSame('pro', $result->data['plan']);
+		// ...and the typed values, as the schema read them
+		$this->assertSame('pro', (string) $result->validation?->forField('plan')?->value);
+	}
+
+	/** The settled country of an Australian-only address is filled back in for the core, so it is in what the core accepted. */
+	#[Test]
+	public function completion_hands_back_the_payload_the_schema_accepted(): void
+	{
+		$schema = new Definition('booking');
+		$schema->add(
+			$schema->createPhoneNumberField('phone', ['AU']),
+			$schema->createAddressField('pickup', ['AU']),
+			$schema->createBooleanField('terms')->mustBeAccepted(),
+		);
+		$options = Forms::options();
+		$options->group('Details', ['phone', 'pickup', 'terms']);
+		$form = new Form($schema, $options, new HiddenFieldStore());
+
+		$result = $form->handle([
+			'phone' => ['number' => '0412 345 678'],
+			'pickup' => ['street' => "1 Queen St\r\n", 'locality' => 'Brisbane', 'subdivision' => 'AU-QLD', 'postal_code' => '4000'],
+			'terms' => 'on',
+			'__wizard' => ['step' => '0', 'action' => 'submit'],
+		]);
+
+		$this->assertTrue($result->completed);
+		$this->assertEquals((object) [
+			'phone' => (object) ['number' => '0412 345 678', 'country' => 'AU'],
+			'pickup' => (object) [
+				'street' => ['1 Queen St'],
+				'locality' => 'Brisbane',
+				'subdivision' => 'AU-QLD',
+				'postal_code' => '4000',
+				'country' => 'AU',
+			],
+			'terms' => true,
+		], $result->payload);
+		// The answers as they were submitted are still there, for re-rendering or storing.
+		$this->assertSame(['number' => '0412 345 678'], $result->data['phone']);
+	}
+
+	/**
+	 * The core discards what was submitted for a field a rule ignores, so handing it on would pass
+	 * along an answer nobody accepted — here, detail typed before switching back to "simple".
+	 */
+	#[Test]
+	public function the_accepted_payload_leaves_out_what_a_rule_ignored(): void
+	{
+		$form = new Form($this->conditionalSchema(), $this->conditionalOptions(), new HiddenFieldStore());
+
+		$result = $form->handle([
+			'mode' => 'simple',
+			'detail' => 'typed while advanced',
+			'name' => 'Alice',
+			'__wizard' => ['step' => '2', 'action' => 'submit'],
+		]);
+
+		$this->assertTrue($result->completed);
+		$this->assertEquals((object) ['mode' => 'simple', 'name' => 'Alice'], $result->payload);
+		$this->assertSame('typed while advanced', $result->data['detail']);
+	}
+
+	/** A row rule's ignore is honoured inside the row, too. */
+	#[Test]
+	public function the_accepted_payload_leaves_out_what_a_row_rule_ignored(): void
+	{
+		$schema = new Definition('booking');
+		$kind = $schema->createEnumField('kind', ['pickup', 'meet']);
+		$address = $schema->createTextField('address');
+		$schema->add($schema->createCollectionField('lessons', $kind, $address)->forEachRow(
+			$kind->when()->equals('meet')->then($address->makeOptional())->thenIgnore($address),
+		));
+		$options = Forms::options();
+		$options->group('Lessons', ['lessons']);
+		$form = new Form($schema, $options, new HiddenFieldStore());
+
+		$result = $form->handle([
+			'lessons' => [
+				'row1' => ['kind' => 'pickup', 'address' => '1 Queen St'],
+				'row2' => ['kind' => 'meet', 'address' => 'typed before choosing meet'],
+			],
+			'__wizard' => ['step' => '0', 'action' => 'submit'],
+		]);
+
+		$this->assertTrue($result->completed);
+		$this->assertEquals([
+			'row1' => (object) ['kind' => 'pickup', 'address' => '1 Queen St'],
+			'row2' => (object) ['kind' => 'meet'],
+		], $result->payload?->lessons);
+	}
+
+	#[Test]
+	public function a_step_is_a_fieldset_with_its_title_as_the_legend(): void
+	{
+		$form = new Form($this->schema(), $this->options(), new HiddenFieldStore());
+
+		$this->assertMatchesRegularExpression(
+			'/<fieldset class="mf-group"><legend>Account<\/legend>.*data-name="name".*<\/fieldset>/s',
+			$form->start(),
+		);
+	}
+
+	#[Test]
+	public function a_steps_title_follows_the_form_default_unless_the_step_says_otherwise(): void
+	{
+		$options = Forms::options()->hideGroupTitles();
+		$options->group('Account', ['name']);
+		$options->group('Contact', ['email'])->showTitle();
+		$options->group('Plan', ['plan']);
+		$form = new Form($this->schema(), $options, new HiddenFieldStore());
+
+		$this->assertStringContainsString('<fieldset class="mf-group"><div class="field"', $form->start());
+		$this->assertStringContainsString(
+			'<fieldset class="mf-group"><legend>Contact</legend>',
+			$form->handle(['name' => 'Alice', '__wizard' => ['step' => '0', 'action' => 'next']])->html,
+		);
+	}
+
+	/**
+	 * A bad phone number typed, then Back to switch to email: the phone step is skipped, and the
+	 * last step's whole-schema check is the first to see the bad value. Re-drawing the last step
+	 * would show nothing wrong, so the form returns to the step that holds the failure.
+	 */
+	#[Test]
+	public function a_failure_on_an_earlier_step_takes_the_form_back_to_that_step(): void
+	{
+		$schema = new Definition('contact');
+		$method = $schema->createEnumField('contact_method', ['email', 'phone']);
+		$phone = $schema->createPhoneNumberField('phone_number', ['AU']);
+		$schema->add($method, $phone, $schema->createNameField('name'));
+		$schema->addRule($method->when()->equals('email')->then($phone->makeOptional()));
+
+		$options = Forms::options();
+		$options->group('Method', ['contact_method']);
+		$options->group('Phone', ['phone_number']);
+		$options->group('Name', ['name']);
+
+		$result = (new Form($schema, $options, new HiddenFieldStore()))->handle([
+			'contact_method' => 'email',
+			'phone_number' => ['number' => '12'],
+			'name' => 'Alice Smith',
+			'__wizard' => ['step' => '2', 'action' => 'submit'],
+		]);
+
+		$this->assertFalse($result->completed);
+		$this->assertStringContainsString('name="__wizard[step]" value="1"', $result->html);
+		$this->assertDoesNotMatchRegularExpression('/data-name="phone_number"\s+hidden/', $result->html);
+		$this->assertStringContainsString('That is not a valid phone number.', $result->html);
 	}
 
 	#[Test]
@@ -138,16 +285,14 @@ final class WizardTest extends TestCase
 		// Regression: the browser submits a rule-hidden, optional field as '' (an
 		// empty string). Without normalization that '' is "provided" and fails
 		// validation, trapping the user on the step.
-		$schema = new Facade('contact');
-		$schema->addEnumField('contact_method', ['email', 'phone']);
-		$schema->addEmailAddressField('email_address');
-		$schema->addPhoneNumberField('phone_number');
-		$schema->whenAllMatch(fn($r) => $r
-			->whenEquals('#/fields/contact_method/value', 'email')
-			->thenRequire('#/fields/email_address')
-			->thenMakeOptional('#/fields/phone_number'));
+		$schema = new Definition('contact');
+		$method = $schema->createEnumField('contact_method', ['email', 'phone']);
+		$email = $schema->createEmailAddressField('email_address');
+		$phone = $schema->createPhoneNumberField('phone_number', ['AU']);
+		$schema->add($method, $email, $phone);
+		$schema->addRule($method->when()->equals('email')->then($email->makeRequired(), $phone->makeOptional()));
 
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Method', ['contact_method']);
 		$options->group('Reach', ['email_address', 'phone_number']);
 		$options->requireConfirmation();
@@ -157,14 +302,14 @@ final class WizardTest extends TestCase
 		$result = $form->handle([
 			'contact_method' => 'email',
 			'email_address' => 'alice@example.com',
-			'phone_number' => '', // optional (rule) + hidden; submitted empty by the browser
+			'phone_number' => ['number' => ''], // optional (rule) + hidden; submitted empty by the browser
 			'__wizard' => ['step' => '1', 'action' => 'next'],
 		]);
 
 		$this->assertFalse($result->completed);
 		// Advanced to the confirm step, not re-rendered on step 1 with a phone error.
 		$this->assertStringContainsString('name="__wizard[step]" value="2"', $result->html);
-		$this->assertStringNotContainsString('Enter a valid phone number', $result->html);
+		$this->assertStringNotContainsString('phone number', $result->html);
 	}
 
 	#[Test]
@@ -183,21 +328,20 @@ final class WizardTest extends TestCase
 		$this->assertSame(['name' => 'Alice'], $storage->read('meraki_wizard'));
 	}
 
-	private function conditionalSchema(): Facade
+	private function conditionalSchema(): Definition
 	{
-		$schema = new Facade('demo');
-		$schema->addEnumField('mode', ['simple', 'advanced'])
-			->pairWith(new Field\Text(new Name('detail')), function (FieldBuilder $rule, Field\Text $d): void {
-				$rule->when($this)->notEquals('advanced')->thenMakeOptional($d)->thenIgnore($d);
-			});
-		$schema->addTextField('name');
+		$schema = new Definition('demo');
+		$mode = $schema->createEnumField('mode', ['simple', 'advanced']);
+		$detail = $schema->createTextField('detail');
+		$schema->add($mode, $detail, $schema->createTextField('name'));
+		$schema->addRule($mode->when()->notEquals('advanced')->then($detail->makeOptional())->thenIgnore($detail));
 
 		return $schema;
 	}
 
 	private function conditionalOptions(): FormOptions
 	{
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->group('Mode', ['mode']);
 		$options->group('Detail', ['detail']);
 		$options->group('Name', ['name']);

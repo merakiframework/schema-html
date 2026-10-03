@@ -3,7 +3,10 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
+use Meraki\Schema\Html\Request\PayloadMapper;
+use Meraki\Schema\Html\Support\Forms;
+use Meraki\Schema\Html\Theme\Renderer\CollectionFieldRenderer;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
@@ -11,98 +14,209 @@ use PHPUnit\Framework\Attributes\CoversClass;
 
 #[Group('html')]
 #[CoversClass(FormRenderer::class)]
-#[CoversClass(FormOptionResolver::class)]
-#[CoversClass(DialogView::class)]
+#[CoversClass(CollectionFieldRenderer::class)]
 final class CollectionRenderTest extends TestCase
 {
-	private function booking(): Facade
+	private function booking(): Definition
 	{
-		$schema = new Facade('booking');
-		$schema->addCollectionField('lessons', function (Facade $item): void {
-			$item->addDateField('date');
-			$item->addTimeField('time');
-		});
+		$schema = new Definition('booking');
+		$schema->add($schema->createCollectionField(
+			'lessons',
+			$schema->createDateField('date'),
+			$schema->createTimeField('time'),
+		));
 
 		return $schema;
 	}
 
-	#[Test]
-	public function it_renders_existing_items_as_indexed_groups_with_remove_and_an_add_control(): void
+	/**
+	 * @param array<string, mixed> $wire
+	 */
+	private function render(Definition $schema, array $wire, ?FormOptions $options = null): string
 	{
-		$schema = $this->booking();
-		$schema->input(['lessons' => [['date' => '2026-01-01', 'time' => '10:00:00']]]);
+		$result = $schema->resolve((new PayloadMapper())->map($schema, $wire));
 
-		$html = (new FormRenderer())->render($schema);
-
-		$this->assertStringContainsString('class="collection"', $html);
-		// Existing item 0 with indexed input names and the prefilled value.
-		$this->assertStringContainsString('name="lessons[0][date]"', $html);
-		$this->assertStringContainsString('name="lessons[0][time]"', $html);
-		$this->assertStringContainsString('value="2026-01-01"', $html);
-		$this->assertStringContainsString('value="remove:lessons:0"', $html);
-		// A blank "add" row at the next index, plus the add action.
-		$this->assertStringContainsString('name="lessons[1][date]"', $html);
-		$this->assertStringContainsString('value="add:lessons"', $html);
+		return (new FormRenderer())->render($schema, $options ?? Forms::options(), $result);
 	}
 
 	#[Test]
-	public function items_added_in_a_dialog_are_shown_read_only_in_the_main_form(): void
+	public function it_renders_existing_rows_by_name_with_remove_and_an_add_control(): void
 	{
 		$schema = $this->booking();
-		$schema->input(['lessons' => [['date' => '2026-02-01', 'time' => '10:00:00']]]);
 
-		$options = new FormOptions();
+		$html = $this->render($schema, ['lessons' => ['row1' => ['date' => '2026-01-01', 'time' => '10:00']]]);
+
+		$this->assertStringContainsString('class="collection"', $html);
+		// The existing row, named, with its value.
+		$this->assertStringContainsString('name="lessons[row1][date]"', $html);
+		$this->assertStringContainsString('name="lessons[row1][time]"', $html);
+		$this->assertStringContainsString('value="2026-01-01"', $html);
+		$this->assertStringContainsString('value="remove:lessons:row1"', $html);
+		// A spare row under the next name, plus the add action.
+		$this->assertStringContainsString('name="lessons[row2][date]"', $html);
+		$this->assertStringContainsString('value="add:lessons"', $html);
+	}
+
+	/** A name is never reused, so a row keeps its identity when one before it goes. */
+	#[Test]
+	public function the_spare_row_takes_a_name_after_the_highest_in_use(): void
+	{
+		$html = $this->render($this->booking(), ['lessons' => [
+			'row1' => ['date' => '2026-01-01', 'time' => '10:00'],
+			'row3' => ['date' => '2026-01-03', 'time' => '10:00'],
+		]]);
+
+		$this->assertStringContainsString('name="lessons[row3][date]"', $html);
+		$this->assertStringContainsString('name="lessons[row4][date]"', $html);
+		$this->assertStringNotContainsString('name="lessons[row2][date]"', $html);
+	}
+
+	#[Test]
+	public function each_rows_inputs_have_their_own_ids(): void
+	{
+		$html = $this->render($this->booking(), ['lessons' => ['row1' => ['date' => '2026-01-01', 'time' => '10:00']]]);
+
+		preg_match_all('/ id="([^"]+)"/', $html, $ids);
+
+		$this->assertSame(array_unique($ids[1]), $ids[1]);
+	}
+
+	#[Test]
+	public function a_row_that_failed_says_so_in_that_row(): void
+	{
+		$schema = $this->booking();
+		$result = $schema->validate((new PayloadMapper())->map($schema, ['lessons' => [
+			'row1' => ['date' => 'not a date', 'time' => '10:00'],
+		]]));
+
+		$html = (new FormRenderer())->render($schema, Forms::options(), $result);
+
+		$this->assertMatchesRegularExpression(
+			'/data-row="row1".*name="lessons\[row1\]\[date\]"[^>]*value="not a date".*<p>That is not a valid date\.<\/p>.*data-row="row2"/s',
+			$html,
+		);
+	}
+
+	#[Test]
+	public function rows_added_in_a_dialog_are_shown_read_only_in_the_main_form(): void
+	{
+		$options = Forms::options();
 		$options->configureOptionsFor('lessons')->addInDialog(trigger: 'Add a lesson', confirm: 'Add');
 
-		$html = (new FormRenderer())->render($schema, $options);
+		$html = $this->render($this->booking(), ['lessons' => ['row1' => ['date' => '2026-02-01', 'time' => '10:00']]], $options);
 
 		[$beforeDialog, $insideDialog] = explode('<dialog', $html, 2);
 
 		// the added lesson reads as a view (value + hidden carry) in the MAIN form...
 		$this->assertStringContainsString('<span class="collection-value">Date: 2026-02-01</span>', $beforeDialog);
-		$this->assertStringContainsString('<input type="hidden" name="lessons[0][date]" value="2026-02-01">', $beforeDialog);
-		$this->assertStringContainsString('value="remove:lessons:0"', $beforeDialog);
+		$this->assertStringContainsString('<input type="hidden" name="lessons[row1][date]" value="2026-02-01">', $beforeDialog);
+		$this->assertStringContainsString('value="remove:lessons:row1"', $beforeDialog);
 		// ...and is NOT an editable date input in the main form
 		$this->assertStringNotContainsString('type="date"', $beforeDialog);
-		// the editable blank add form (index 1) lives inside the dialog
-		$this->assertStringContainsString('name="lessons[1][date]"', $insideDialog);
+		// the editable spare row lives inside the dialog, and is marked as the draft
+		$this->assertStringContainsString('name="lessons[row2][date]"', $insideDialog);
+		$this->assertStringContainsString('<input type="hidden" name="__draft[lessons]" value="row2">', $html);
+	}
+
+	/**
+	 * Shown read-only, a row that failed would block the step with nothing to say why and nothing
+	 * to fix, so it is drawn editable — with its messages — where it is.
+	 */
+	#[Test]
+	public function a_row_added_in_a_dialog_that_failed_is_drawn_editable_with_its_messages(): void
+	{
+		$schema = $this->booking();
+		$options = Forms::options();
+		$options->configureOptionsFor('lessons')->addInDialog(trigger: 'Add a lesson', confirm: 'Add');
+		$result = $schema->validate((new PayloadMapper())->map($schema, ['lessons' => [
+			'row1' => ['date' => '2026-02-01', 'time' => '10:00'],
+			'row2' => ['date' => 'not a date', 'time' => '11:00'],
+		]]));
+
+		[$beforeDialog] = explode('<dialog', (new FormRenderer())->render($schema, $options, $result), 2);
+
+		$this->assertStringContainsString('<span class="collection-value">Date: 2026-02-01</span>', $beforeDialog);
+		$this->assertMatchesRegularExpression(
+			'/data-row="row2".*<input type="date"[^>]*name="lessons\[row2\]\[date\]"[^>]*value="not a date".*<p>That is not a valid date\.<\/p>.*value="remove:lessons:row2"/s',
+			$beforeDialog,
+		);
+	}
+
+	/** A dropdown's value reads as its label, not its code (the state, not `AU-QLD`); a street on one line. */
+	#[Test]
+	public function a_read_only_row_shows_a_choices_label(): void
+	{
+		$schema = new Definition('booking');
+		$schema->add($schema->createCollectionField(
+			'lessons',
+			$schema->createEnumField('level', ['beginner', 'advanced']),
+			$schema->createAddressField('pickup', ['AU']),
+		));
+		$options = Forms::options();
+		$options->configureOptionsFor('lessons')->addInDialog();
+		$options->configureOptionsFor('lessons')->configureOptionsFor('level')->labelOption('beginner', 'Beginner');
+
+		$html = $this->render($schema, ['lessons' => ['row1' => ['level' => 'beginner', 'pickup' => [
+			'street' => "Level 2\r\n1 King St", 'locality' => 'Brisbane', 'subdivision' => 'AU-QLD', 'postal_code' => '4000',
+		]]]], $options);
+
+		$this->assertStringContainsString('<span class="collection-value">Level: Beginner</span>', $html);
+		$this->assertStringContainsString('<span class="collection-value">Pickup address: Level 2, 1 King St</span>', $html);
+		$this->assertStringContainsString('<span class="collection-value">Pickup state: Queensland</span>', $html);
+		$this->assertStringContainsString('<input type="hidden" name="lessons[row1][pickup][subdivision]" value="AU-QLD">', $html);
 	}
 
 	#[Test]
 	public function the_add_form_can_be_shown_in_a_dialog(): void
 	{
-		$schema = $this->booking();
-
-		$options = new FormOptions();
+		$options = Forms::options();
 		$options->configureOptionsFor('lessons')->addInDialog(trigger: 'Add a lesson', confirm: 'Add');
 
-		$html = (new FormRenderer())->render($schema, $options);
+		$html = (new FormRenderer())->render($this->booking(), $options);
 
 		$this->assertStringContainsString('command="show-modal"', $html);
 		$this->assertStringContainsString('>Add a lesson</button>', $html);
 		// The dialog's confirm submits the add action.
 		$this->assertStringContainsString('value="add:lessons"', $html);
-		$this->assertStringContainsString('name="lessons[0][date]"', $html);
+		$this->assertStringContainsString('name="lessons[row1][date]"', $html);
 	}
 
 	#[Test]
-	public function items_can_contain_a_composite_sub_field_with_nested_input_names(): void
+	public function rows_can_hold_a_structured_field_with_nested_input_names(): void
 	{
-		$schema = new Facade('booking');
-		$schema->addCollectionField('lessons', function (Facade $item): void {
-			$item->addDateField('date');
-			$item->addAddressField('pickup');
-		})->minItems(1);
-		$schema->input(['lessons' => [['date' => '2026-01-01', 'pickup' => [
-			'line1' => '1 King St', 'locality' => 'Brisbane', 'administrative_area' => 'QLD', 'postal_code' => '4000', 'country_code' => 'AU',
+		$schema = new Definition('booking');
+		$schema->add($schema->createCollectionField(
+			'lessons',
+			$schema->createDateField('date'),
+			$schema->createAddressField('pickup', ['AU']),
+		));
+
+		$html = $this->render($schema, ['lessons' => ['row1' => ['date' => '2026-01-01', 'pickup' => [
+			'street' => '1 King St', 'locality' => 'Brisbane', 'subdivision' => 'AU-QLD', 'postal_code' => '4000',
 		]]]]);
 
-		$html = (new FormRenderer())->render($schema);
-
-		// the per-item composite renders with doubly-nested names and the item's value
-		$this->assertStringContainsString('name="lessons[0][pickup][line1]"', $html);
+		// the per-row address renders with doubly-nested names and the row's value
+		$this->assertStringContainsString('name="lessons[row1][pickup][street]"', $html);
 		$this->assertStringContainsString('value="Brisbane"', $html);
-		// and a blank next item keeps the same nesting
-		$this->assertStringContainsString('name="lessons[1][pickup][postal_code]"', $html);
+		// and the spare row keeps the same nesting
+		$this->assertStringContainsString('name="lessons[row2][pickup][postal_code]"', $html);
+	}
+
+	#[Test]
+	public function a_new_row_can_start_with_values_from_the_first(): void
+	{
+		$schema = new Definition('booking');
+		$schema->add($schema->createCollectionField(
+			'lessons',
+			$schema->createDateField('date'),
+			$schema->createTextField('notes')->makeOptional(),
+		));
+
+		$options = Forms::options();
+		$options->configureOptionsFor('lessons')->inheritInNewItems('notes');
+
+		$html = $this->render($schema, ['lessons' => ['row1' => ['date' => '2026-01-01', 'notes' => 'Bring docs']]], $options);
+
+		$this->assertMatchesRegularExpression('/name="lessons\[row2\]\[notes\]"[^>]*value="Bring docs"/', $html);
 	}
 }

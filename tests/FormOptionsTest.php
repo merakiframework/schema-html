@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Html\Request\SequentialRowKeys;
+use Meraki\Schema\Html\Support\Forms;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
@@ -13,15 +14,13 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(FormOptions::class)]
 #[CoversClass(FieldOptions::class)]
 #[CoversClass(Renderer::class)]
+#[CoversClass(Messages::class)]
+#[CoversClass(SequentialRowKeys::class)]
 final class FormOptionsTest extends TestCase
 {
 	#[Test]
 	public function it_builds_a_nested_options_array(): void
 	{
-		$schema = new Facade('signup');
-		$schema->addEmailAddressField('email');
-		$schema->addTextField('bio');
-
 		$options = (new FormOptions())->postTo('/signup');
 		$options->configureOptionsFor('email')->label('Your email');
 		$options->configureOptionsFor('bio')->renderAsTextarea()->readonly();
@@ -52,11 +51,8 @@ final class FormOptionsTest extends TestCase
 	}
 
 	#[Test]
-	public function can_configure_composite_field_options(): void
+	public function can_configure_a_structured_fields_parts(): void
 	{
-		$schema = new Facade('signup');
-		$schema->addMoneyField('price', ['AUD' => 2]);
-
 		$options = new FormOptions();
 		$options->configureOptionsFor('price')->configureOptionsFor('amount')->label('Enter Amount');
 		$options->configureOptionsFor('price')->configureOptionsFor('currency')->renderAsDropdown()->labelOption('AUD', 'A$');
@@ -76,5 +72,38 @@ final class FormOptionsTest extends TestCase
 				],
 			],
 		], $options->toArray());
+	}
+
+	#[Test]
+	public function messages_settled_parts_and_row_keys_are_configurable(): void
+	{
+		$rowKeys = new SequentialRowKeys('line');
+		$options = (new FormOptions())
+			->withMessages('en-AU', Forms::messages())
+			->settledParts(SettledPart::Hidden)
+			->withRowKeys($rowKeys);
+
+		$this->assertSame('en-AU', $options->messages?->locale);
+		$this->assertSame(Forms::messages(), $options->messages?->provider);
+		$this->assertSame(SettledPart::Hidden, $options->settledParts);
+		$this->assertSame($rowKeys, $options->rowKeys);
+	}
+
+	#[Test]
+	public function by_default_settled_parts_are_omitted_and_no_language_is_chosen(): void
+	{
+		$options = new FormOptions();
+
+		$this->assertNull($options->messages);
+		$this->assertSame(SettledPart::Omit, $options->settledParts);
+	}
+
+	#[Test]
+	public function a_fields_settled_parts_can_be_configured_on_their_own(): void
+	{
+		$options = new FormOptions();
+		$options->configureOptionsFor('billing')->settledParts(SettledPart::Visible);
+
+		$this->assertSame(['billing' => ['settledParts' => 'visible']], $options->toArray()['fields']);
 	}
 }

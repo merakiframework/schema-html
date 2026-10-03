@@ -40,6 +40,26 @@ final class GroupOptions
 		return $this;
 	}
 
+	/**
+	 * Draws this group with its title whatever the form's default
+	 * ({@see FormOptions::hideGroupTitles()}): a fieldset's legend, a dialog's heading.
+	 */
+	public function showTitle(): self
+	{
+		$this->group->titled = true;
+		return $this;
+	}
+
+	/**
+	 * Draws this group without its title whatever the form's default. A disclosure keeps its
+	 * summary and a dialog its trigger button: those are the controls that open them, not titles.
+	 */
+	public function hideTitle(): self
+	{
+		$this->group->titled = false;
+		return $this;
+	}
+
 	public function group(string $title, array $fieldNames): self
 	{
 		return $this->root->group($title, $fieldNames);
