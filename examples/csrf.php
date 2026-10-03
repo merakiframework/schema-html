@@ -18,7 +18,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\Csrf\SynchroniserToken;
 use Meraki\Schema\Html\Csrf\TokenMismatch;
 use Meraki\Schema\Html\FormOptions;
@@ -30,9 +30,9 @@ use Meraki\Schema\Message\Mf2\Mf2Provider;
 
 session_start();
 
-function buildSchema(): Facade
+function buildSchema(): Definition
 {
-	$schema = new Facade('signup');
+	$schema = new Definition('signup');
 	$schema->add(
 		$schema->createNameField('name'),
 		$schema->createEmailAddressField('email'),
@@ -48,7 +48,7 @@ $schema = buildSchema();
 // must already be started (above).
 $options = (new FormOptions())
 	->postTo('/csrf.php')
-	->withMessages('en', Mf2Provider::fromDirectory(__DIR__ . '/lang'))
+	->withMessages('en', Mf2Provider::fromPackage('meraki/schema-language-english'))
 	->withCsrfProtection(new SynchroniserToken(new SessionStorage()));
 
 $renderer = new FormRenderer();

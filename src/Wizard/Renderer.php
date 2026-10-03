@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Wizard;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\Html\Dialog;
 use Meraki\Schema\Html\Element;
@@ -38,7 +38,7 @@ final class Renderer
 	 *        step from the answers so far
 	 */
 	public function render(
-		Facade $schema,
+		Definition $schema,
 		FormOptions $options,
 		StateStore $store,
 		State $state,
@@ -79,7 +79,7 @@ final class Renderer
 	 *
 	 * @param array<string, mixed> $data
 	 */
-	public function resolveVisibleIndex(Facade $schema, FormOptions $options, array $data, int $from, int $direction): int
+	public function resolveVisibleIndex(Definition $schema, FormOptions $options, array $data, int $from, int $direction): int
 	{
 		$groups = $options->groups;
 
@@ -234,7 +234,7 @@ final class Renderer
 		$form->append($this->navigation($w, $index, count($scene->options->groups)));
 	}
 
-	private function assertGroupFieldsExist(Facade $schema, Group $group): void
+	private function assertGroupFieldsExist(Definition $schema, Group $group): void
 	{
 		foreach ($group->fieldNames as $name) {
 			if ($schema->fields->findByName($name) === null) {

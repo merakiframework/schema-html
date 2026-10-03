@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldResult;
 use Meraki\Schema\Html\Presentation\RuleEffects;
@@ -22,7 +22,7 @@ final class FieldRenderContext
 		/** What the schema's rules did to the field's optionality on this request. */
 		public readonly RuleEffects $effects,
 		public object $options,
-		public readonly Facade $schema,
+		public readonly Definition $schema,
 	) {}
 
 	/** The effective definition, including anything a rule changed. */

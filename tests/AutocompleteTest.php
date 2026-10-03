@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\Html\Presentation\FieldViewFactory;
 use Meraki\Schema\Html\Support\Forms;
@@ -28,7 +28,7 @@ final class AutocompleteTest extends TestCase
 	#[DataProvider('fieldsWithTokens')]
 	public function it_emits_the_semantic_token_for_a_field_type(string $method, string $expectedToken): void
 	{
-		$html = $this->render(fn(Facade $schema): Field => $schema->{$method}('subject'));
+		$html = $this->render(fn(Definition $schema): Field => $schema->{$method}('subject'));
 
 		$this->assertStringContainsString('autocomplete="' . $expectedToken . '"', $html);
 	}
@@ -48,7 +48,7 @@ final class AutocompleteTest extends TestCase
 	#[DataProvider('partsWithTokens')]
 	public function it_emits_tokens_for_a_structured_fields_parts(string $method, string $part, string $expectedToken): void
 	{
-		$html = $this->render(fn(Facade $schema): Field => $schema->{$method}('subject'));
+		$html = $this->render(fn(Definition $schema): Field => $schema->{$method}('subject'));
 
 		$this->assertMatchesRegularExpression(
 			'/name="subject\[' . preg_quote($part, '/') . '\]"[^>]*autocomplete="' . preg_quote($expectedToken, '/') . '"/',
@@ -63,10 +63,10 @@ final class AutocompleteTest extends TestCase
 	public static function partsWithTokens(): array
 	{
 		return [
-			'address line 1' => ['createAddressField', 'line1', 'address-line1'],
-			'address line 2' => ['createAddressField', 'line2', 'address-line2'],
+			'address street line 1' => ['createAddressField', 'street][0', 'address-line1'],
+			'address street line 2' => ['createAddressField', 'street][1', 'address-line2'],
 			'address locality' => ['createAddressField', 'locality', 'address-level2'],
-			'address administrative area' => ['createAddressField', 'administrative_area', 'address-level1'],
+			'address subdivision' => ['createAddressField', 'subdivision', 'address-level1'],
 			'address postal code' => ['createAddressField', 'postal_code', 'postal-code'],
 			'address country' => ['createAddressField', 'country', 'country'],
 			'card number' => ['createCreditCardField', 'number', 'cc-number'],
@@ -79,7 +79,7 @@ final class AutocompleteTest extends TestCase
 	#[Test]
 	public function it_emits_nothing_for_a_field_with_no_meaningful_token(): void
 	{
-		$html = $this->render(fn(Facade $schema): Field => $schema->createTextField('nickname'));
+		$html = $this->render(fn(Definition $schema): Field => $schema->createTextField('nickname'));
 
 		$this->assertStringNotContainsString('autocomplete', $html);
 	}
@@ -90,7 +90,7 @@ final class AutocompleteTest extends TestCase
 		$options = Forms::options();
 		$options->configureOptionsFor('email')->autocomplete(false);
 
-		$html = $this->render(fn(Facade $schema): Field => $schema->createEmailAddressField('email'), $options);
+		$html = $this->render(fn(Definition $schema): Field => $schema->createEmailAddressField('email'), $options);
 
 		$this->assertStringContainsString('autocomplete="off"', $html);
 		$this->assertStringNotContainsString('autocomplete="email"', $html);
@@ -102,7 +102,7 @@ final class AutocompleteTest extends TestCase
 		$options = Forms::options();
 		$options->configureOptionsFor('password')->autocomplete('new-password');
 
-		$html = $this->render(fn(Facade $schema): Field => $schema->createPasswordField('password'), $options);
+		$html = $this->render(fn(Definition $schema): Field => $schema->createPasswordField('password'), $options);
 
 		$this->assertStringContainsString('autocomplete="new-password"', $html);
 		$this->assertStringNotContainsString('autocomplete="current-password"', $html);
@@ -112,11 +112,11 @@ final class AutocompleteTest extends TestCase
 	public function a_parts_token_can_be_overridden(): void
 	{
 		$options = Forms::options();
-		$options->configureOptionsFor('shipping')->configureOptionsFor('line1')->autocomplete('shipping address-line1');
+		$options->configureOptionsFor('shipping')->configureOptionsFor('postal_code')->autocomplete('shipping postal-code');
 
-		$html = $this->render(fn(Facade $schema): Field => $schema->createAddressField('shipping'), $options);
+		$html = $this->render(fn(Definition $schema): Field => $schema->createAddressField('shipping'), $options);
 
-		$this->assertMatchesRegularExpression('/name="shipping\[line1\]"[^>]*autocomplete="shipping address-line1"/', $html);
+		$this->assertMatchesRegularExpression('/name="shipping\[postal_code\]"[^>]*autocomplete="shipping postal-code"/', $html);
 	}
 
 	/** `none` was never a valid value for the attribute; `off` is. */
@@ -126,18 +126,18 @@ final class AutocompleteTest extends TestCase
 		$options = Forms::options();
 		$options->configureOptionsFor('plan')->renderAsDropdown();
 
-		$html = $this->render(fn(Facade $schema): Field => $schema->createEnumField('plan', ['free', 'pro']), $options);
+		$html = $this->render(fn(Definition $schema): Field => $schema->createEnumField('plan', ['free', 'pro']), $options);
 
 		$this->assertStringContainsString('<select', $html);
 		$this->assertStringNotContainsString('autocomplete="none"', $html);
 	}
 
 	/**
-	 * @param callable(Facade): Field $field
+	 * @param callable(Definition): Field $field
 	 */
 	private function render(callable $field, ?FormOptions $options = null): string
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($field($schema));
 
 		return (new FormRenderer())->render($schema, $options ?? Forms::options());

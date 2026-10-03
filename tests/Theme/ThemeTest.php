@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Theme;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\Html\Element;
 use Meraki\Schema\Html\Exception\NoRendererForField;
@@ -23,9 +23,9 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(FieldRenderers::class)]
 final class ThemeTest extends TestCase
 {
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add(
 			$schema->createEnumField('plan', ['free', 'pro']),
 			$schema->createAddressField('billing', ['AU', 'NZ']),
@@ -69,7 +69,7 @@ final class ThemeTest extends TestCase
 		$html = (new FormRenderer($theme))->render($this->schema(), Forms::options());
 
 		$this->assertStringContainsString('<p class="custom">Plan</p>', $html);
-		$this->assertStringContainsString('name="billing[line1]"', $html);
+		$this->assertStringContainsString('name="billing[street][0]"', $html);
 	}
 
 	#[Test]

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "48bc39407e98ca96332b47b8bd956ab7",
+    "content-hash": "2f58dce2f07c8b08e608231be3533737",
     "packages": [
         {
             "name": "bjeavons/zxcvbn-php",
@@ -535,16 +535,16 @@
         },
         {
             "name": "meraki/schema",
-            "version": "v2.0.0-alpha.2",
+            "version": "v2.0.0-alpha.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/merakiframework/schema.git",
-                "reference": "66defeb0e03ff1df966fe4a70511ec98262116d3"
+                "reference": "8231c37a0736f69c71cf49cef9c7bea7a8948809"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/merakiframework/schema/zipball/66defeb0e03ff1df966fe4a70511ec98262116d3",
-                "reference": "66defeb0e03ff1df966fe4a70511ec98262116d3",
+                "url": "https://api.github.com/repos/merakiframework/schema/zipball/8231c37a0736f69c71cf49cef9c7bea7a8948809",
+                "reference": "8231c37a0736f69c71cf49cef9c7bea7a8948809",
                 "shasum": ""
             },
             "require": {
@@ -607,7 +607,7 @@
                 "issues": "https://github.com/merakiframework/schema/issues",
                 "source": "https://github.com/merakiframework/schema"
             },
-            "time": "2026-09-28T04:52:12+00:00"
+            "time": "2026-10-02T13:27:18+00:00"
         },
         {
             "name": "psr/http-message",
@@ -735,16 +735,16 @@
         },
         {
             "name": "symfony/polyfill-mbstring",
-            "version": "v1.38.2",
+            "version": "v1.43.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-mbstring.git",
-                "reference": "d3d318bad5e7a1bfbd026009c8bfb8d8f99ae6b6"
+                "reference": "4d5d331bf731e0aedbc6b2f5e61135b7b7996a72"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/d3d318bad5e7a1bfbd026009c8bfb8d8f99ae6b6",
-                "reference": "d3d318bad5e7a1bfbd026009c8bfb8d8f99ae6b6",
+                "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/4d5d331bf731e0aedbc6b2f5e61135b7b7996a72",
+                "reference": "4d5d331bf731e0aedbc6b2f5e61135b7b7996a72",
                 "shasum": ""
             },
             "require": {
@@ -796,7 +796,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-mbstring/tree/v1.38.2"
+                "source": "https://github.com/symfony/polyfill-mbstring/tree/v1.43.0"
             },
             "funding": [
                 {
@@ -816,20 +816,20 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-05-27T06:59:30+00:00"
+            "time": "2026-09-24T15:19:04+00:00"
         },
         {
             "name": "symfony/polyfill-php86",
-            "version": "v1.41.0",
+            "version": "v1.43.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-php86.git",
-                "reference": "6bc356ed3d8dbfeea8f0de235e34d670704e880e"
+                "reference": "8840df45b24f33a49dc419fa18dc0057231ae1d8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-php86/zipball/6bc356ed3d8dbfeea8f0de235e34d670704e880e",
-                "reference": "6bc356ed3d8dbfeea8f0de235e34d670704e880e",
+                "url": "https://api.github.com/repos/symfony/polyfill-php86/zipball/8840df45b24f33a49dc419fa18dc0057231ae1d8",
+                "reference": "8840df45b24f33a49dc419fa18dc0057231ae1d8",
                 "shasum": ""
             },
             "require": {
@@ -876,7 +876,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-php86/tree/v1.41.0"
+                "source": "https://github.com/symfony/polyfill-php86/tree/v1.43.0"
             },
             "funding": [
                 {
@@ -896,10 +896,57 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-07-02T13:42:24+00:00"
+            "time": "2026-09-25T15:46:47+00:00"
         }
     ],
     "packages-dev": [
+        {
+            "name": "meraki/schema-language-english",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/merakiframework/schema-language-english.git",
+                "reference": "be7b84d6556569cc72d0e1207f4cf9306bf76987"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/merakiframework/schema-language-english/zipball/be7b84d6556569cc72d0e1207f4cf9306bf76987",
+                "reference": "be7b84d6556569cc72d0e1207f4cf9306bf76987",
+                "shasum": ""
+            },
+            "require-dev": {
+                "meraki/schema": "dev-main"
+            },
+            "default-branch": true,
+            "type": "library",
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Nathan",
+                    "email": "nbish11@hotmail.com"
+                }
+            ],
+            "description": "English messages for meraki/schema, as ICU MessageFormat 2 resources. Data only — no PHP.",
+            "homepage": "https://github.com/merakiframework/schema-language-english",
+            "keywords": [
+                "english",
+                "i18n",
+                "icu",
+                "l10n",
+                "messageformat",
+                "messages",
+                "mf2",
+                "schema"
+            ],
+            "support": {
+                "issues": "https://github.com/merakiframework/schema-language-english/issues",
+                "source": "https://github.com/merakiframework/schema-language-english"
+            },
+            "time": "2026-10-02T12:34:17+00:00"
+        },
         {
             "name": "myclabs/deep-copy",
             "version": "1.14.0",
@@ -2667,7 +2714,9 @@
     ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": {},
+    "stability-flags": {
+        "meraki/schema-language-english": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

@@ -14,19 +14,11 @@ use Meraki\Schema\Html\Exception;
  */
 final class MessagesNotConfigured extends \LogicException implements Exception
 {
-	public static function noLocale(string $form): self
+	public static function for(string $form): self
 	{
 		return new self(sprintf(
-			'Form "%s" has no message locale. Call FormOptions::withMessages($locale, $provider) before rendering.',
-			$form,
-		));
-	}
-
-	public static function noProvider(string $form): self
-	{
-		return new self(sprintf(
-			'Form "%s" has no message provider. Pass one to FormOptions::withMessages(), or give the schema one '
-				. '(new Facade(..., messages: $provider)).',
+			'Form "%s" has no messages. Call FormOptions::withMessages($locale, $provider) before rendering, e.g. '
+				. 'withMessages(\'en\', Mf2Provider::fromPackage(\'meraki/schema-language-english\')).',
 			$form,
 		));
 	}

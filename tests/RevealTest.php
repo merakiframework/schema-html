@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\Support\Forms;
 use Meraki\Schema\Html\Theme\DefaultWidgets;
 use PHPUnit\Framework\TestCase;
@@ -20,7 +20,7 @@ final class RevealTest extends TestCase
 	#[Test]
 	public function reveal_inline_wraps_the_field_in_a_details_disclosure(): void
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('note')->makeOptional());
 
 		$options = Forms::options();
@@ -37,7 +37,7 @@ final class RevealTest extends TestCase
 	#[Test]
 	public function reveal_inline_can_be_open_by_default(): void
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('note')->makeOptional());
 
 		$options = Forms::options();
@@ -51,7 +51,7 @@ final class RevealTest extends TestCase
 	#[Test]
 	public function reveal_with_popup_uses_a_command_invoker_and_popover(): void
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('coupon')->makeOptional());
 
 		$options = Forms::options();
@@ -68,7 +68,7 @@ final class RevealTest extends TestCase
 	#[Test]
 	public function render_as_select_emits_a_customizable_select(): void
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createEnumField('plan', ['free', 'pro']));
 
 		$options = Forms::options();

@@ -16,4 +16,16 @@ final readonly class RowView
 		public string $key,
 		public array $fields,
 	) {}
+
+	/** Whether anything is wrong with any field in this row. */
+	public function hasErrors(): bool
+	{
+		foreach ($this->fields as $field) {
+			if ($field->hasErrors()) {
+				return true;
+			}
+		}
+
+		return false;
+	}
 }

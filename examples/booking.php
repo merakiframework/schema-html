@@ -40,16 +40,16 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\Wizard\Form;
 use Meraki\Schema\Html\Wizard\HiddenFieldStore;
 use Meraki\Schema\Message\Mf2\Mf2Provider;
 
-function buildSchema(): Facade
+function buildSchema(): Definition
 {
 	// Everything region-aware (the phone number, the pick-up address) is Australian.
-	$schema = (new Facade('booking'))->for('AU');
+	$schema = (new Definition('booking'))->for('AU');
 
 	// 1) Account — a real app redirects to login (with return_to) here and skips this step
 	//    when already signed in; the form only records the choice. [APP-LEVEL]
@@ -133,7 +133,7 @@ function buildSchema(): Facade
 
 function buildOptions(): FormOptions
 {
-	$options = (new FormOptions())->withMessages('en-AU', Mf2Provider::fromDirectory(__DIR__ . '/lang'));
+	$options = (new FormOptions())->withMessages('en-AU', Mf2Provider::fromPackage('meraki/schema-language-english'));
 
 	$options->configureOptionsFor('account')->renderAsButtonGroup()->labelOptions([
 		'user' => 'I have an account',

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Presentation;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Message\Translator;
 
@@ -13,7 +13,7 @@ use Meraki\Schema\Message\Translator;
 final readonly class Scene
 {
 	public function __construct(
-		public Facade $schema,
+		public Definition $schema,
 		public FormOptions $options,
 		public Translator $translator,
 	) {}

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Wizard;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\Support\Forms;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -19,7 +19,7 @@ final class CollectionFlowTest extends TestCase
 {
 	private function bookingForm(): Form
 	{
-		$schema = new Facade('booking');
+		$schema = new Definition('booking');
 		$schema->add($schema->createCollectionField(
 			'lessons',
 			$schema->createDateField('date'),
@@ -101,7 +101,7 @@ final class CollectionFlowTest extends TestCase
 
 	private function dialogBookingForm(): Form
 	{
-		$schema = new Facade('booking');
+		$schema = new Definition('booking');
 		$schema->add($schema->createCollectionField(
 			'lessons',
 			$schema->createDateField('date'),

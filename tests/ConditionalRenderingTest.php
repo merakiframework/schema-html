@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\Html\Behaviour\HideOptionalFieldsResolvedByRules;
 use Meraki\Schema\Html\Presentation\RuleEffects;
@@ -25,9 +25,9 @@ final class ConditionalRenderingTest extends TestCase
 	 * A contact form whose rules live in the schema: choosing "email" requires the
 	 * email field and makes the phone field optional, and vice-versa.
 	 */
-	private function contactSchema(): Facade
+	private function contactSchema(): Definition
 	{
-		$schema = new Facade('contact_us');
+		$schema = new Definition('contact_us');
 		$method = $schema->createEnumField('contact_method', ['email', 'phone']);
 		$email = $schema->createEmailAddressField('email_address');
 		$phone = $schema->createPhoneNumberField('phone_number', ['AU']);
@@ -41,7 +41,7 @@ final class ConditionalRenderingTest extends TestCase
 		return $schema;
 	}
 
-	private function render(Facade $schema, string $method, ?FormOptions $options = null): string
+	private function render(Definition $schema, string $method, ?FormOptions $options = null): string
 	{
 		return (new FormRenderer())->render(
 			$schema,
@@ -110,7 +110,7 @@ final class ConditionalRenderingTest extends TestCase
 	#[Test]
 	public function a_field_whose_input_a_rule_ignores_is_hidden_even_when_already_optional(): void
 	{
-		$schema = new Facade('booking');
+		$schema = new Definition('booking');
 		$whoFor = $schema->createEnumField('who_for', ['myself', 'someone_else']);
 		$participant = $schema->createTextField('participant')->makeOptional();
 		$schema->add($whoFor, $participant);
@@ -126,7 +126,7 @@ final class ConditionalRenderingTest extends TestCase
 	#[Test]
 	public function an_else_branch_that_makes_a_field_optional_hides_it_too(): void
 	{
-		$schema = new Facade('insurance');
+		$schema = new Definition('insurance');
 		$parcel = $schema->createEnumField('parcel', ['small', 'large']);
 		$insurance = $schema->createBooleanField('insurance');
 		$schema->add($parcel, $insurance);

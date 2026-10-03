@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Wizard;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\Support\Forms;
 use PHPUnit\Framework\TestCase;
@@ -23,9 +23,9 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Result::class)]
 final class WizardTest extends TestCase
 {
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add(
 			$schema->createNameField('name'),
 			$schema->createEmailAddressField('email'),
@@ -139,7 +139,7 @@ final class WizardTest extends TestCase
 		// Regression: the browser submits a rule-hidden, optional field as '' (an
 		// empty string). Without normalization that '' is "provided" and fails
 		// validation, trapping the user on the step.
-		$schema = new Facade('contact');
+		$schema = new Definition('contact');
 		$method = $schema->createEnumField('contact_method', ['email', 'phone']);
 		$email = $schema->createEmailAddressField('email_address');
 		$phone = $schema->createPhoneNumberField('phone_number', ['AU']);
@@ -182,9 +182,9 @@ final class WizardTest extends TestCase
 		$this->assertSame(['name' => 'Alice'], $storage->read('meraki_wizard'));
 	}
 
-	private function conditionalSchema(): Facade
+	private function conditionalSchema(): Definition
 	{
-		$schema = new Facade('demo');
+		$schema = new Definition('demo');
 		$mode = $schema->createEnumField('mode', ['simple', 'advanced']);
 		$detail = $schema->createTextField('detail');
 		$schema->add($mode, $detail, $schema->createTextField('name'));

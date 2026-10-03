@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\Presentation\Layout\CreditCardLayout;
 use Meraki\Schema\Html\Presentation\Layout\MoneyLayout;
 use Meraki\Schema\Html\Presentation\Layout\PhoneNumberLayout;
@@ -21,7 +21,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(CreditCardLayout::class)]
 final class StructuredRenderTest extends TestCase
 {
-	private function render(Facade $schema, ?FormOptions $options = null, ?object $data = null): string
+	private function render(Definition $schema, ?FormOptions $options = null, ?object $data = null): string
 	{
 		return (new FormRenderer())->render(
 			$schema,
@@ -34,7 +34,7 @@ final class StructuredRenderTest extends TestCase
 	#[Test]
 	public function money_in_one_currency_draws_as_a_single_amount_input(): void
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add($schema->createMoneyField('price', ['AUD']));
 
 		$html = $this->render($schema);
@@ -47,7 +47,7 @@ final class StructuredRenderTest extends TestCase
 	#[Test]
 	public function money_in_several_currencies_asks_for_the_currency_too(): void
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add($schema->createMoneyField('price', ['AUD', 'NZD']));
 
 		$options = Forms::options();
@@ -64,7 +64,7 @@ final class StructuredRenderTest extends TestCase
 	#[Test]
 	public function a_phone_number_in_one_country_draws_as_a_single_tel_input(): void
 	{
-		$schema = new Facade('contact');
+		$schema = new Definition('contact');
 		$schema->add($schema->createPhoneNumberField('mobile', ['AU']));
 
 		$html = $this->render($schema);
@@ -76,7 +76,7 @@ final class StructuredRenderTest extends TestCase
 	#[Test]
 	public function a_phone_number_from_anywhere_asks_which_country(): void
 	{
-		$schema = new Facade('contact');
+		$schema = new Definition('contact');
 		$schema->add($schema->createPhoneNumberField('mobile'));
 
 		$html = $this->render($schema);
@@ -89,7 +89,7 @@ final class StructuredRenderTest extends TestCase
 	#[Test]
 	public function a_cards_expiry_is_a_month_input(): void
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add($schema->createCreditCardField('card'));
 
 		$html = $this->render($schema);
@@ -100,7 +100,7 @@ final class StructuredRenderTest extends TestCase
 	#[Test]
 	public function a_cards_number_and_security_code_are_never_written_back(): void
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add($schema->createCreditCardField('card'));
 
 		$html = $this->render($schema, data: (object) ['card' => (object) [

@@ -101,8 +101,10 @@ final class FieldViewFactory
 
 		// A part that is not drawn — settled, or one the field has no use for — still has to
 		// say what is wrong with it somewhere, and the field as a whole is the only place left.
+		$drawn = array_flip(array_map(static fn(PartView $part): string => $part->name, $parts));
+
 		foreach ($byPart as $part => $said) {
-			if (!isset($parts[$part])) {
+			if (!isset($drawn[$part])) {
 				$whole = [...$whole, ...$said];
 			}
 		}
@@ -186,12 +188,9 @@ final class FieldViewFactory
 
 			$user = is_array($fieldOptions[$part] ?? null) ? $fieldOptions[$part] : [];
 			$po = array_merge($spec, $user);
-			$labels = is_array($po['options'] ?? null) ? $po['options'] : [];
-			$choices = [];
-
-			foreach ((array) ($po['choices'] ?? []) as $value => $label) {
-				$choices[(string) $value] = self::labelOf($labels, (string) $value, (string) $label);
-			}
+			$value = $values[$part] ?? ($isSettled ? $settled[$part] : null);
+			$required = !$field->optional && (bool) ($po['required'] ?? false);
+			$errors = $byPart[$part] ?? [];
 
 			$widget = match (true) {
 				$isSettled && $strategy === SettledPart::Hidden => PartView::WIDGET_HIDDEN,
@@ -200,32 +199,85 @@ final class FieldViewFactory
 				default => (string) ($po['widget'] ?? PartView::WIDGET_INPUT),
 			};
 
-			$views[$part] = new PartView(
-				name: $part,
-				label: (string) ($po['label'] ?? ucfirst(str_replace('_', ' ', $part))),
-				control: new Control(
-					id: (string) ($po['id'] ?? $whole->id . '-' . $part),
-					name: $whole->name . '[' . $part . ']',
-					type: (string) ($po['type'] ?? 'text'),
-					value: self::text($values[$part] ?? ($isSettled ? $settled[$part] : null)),
-					required: !$field->optional && (bool) ($po['required'] ?? false),
-					readonly: (bool) ($po['readonly'] ?? $whole->readonly),
-					disabled: (bool) ($po['disabled'] ?? $whole->disabled),
-					hidden: (bool) ($po['hidden'] ?? false),
-					autofocus: (bool) ($po['autofocus'] ?? false),
-					autocomplete: FormOptionResolver::autocompleteFor($po),
-					pattern: self::string($po['pattern'] ?? null),
-					inputmode: self::string($po['inputmode'] ?? null),
-					placeholder: self::string($po['hint'] ?? null),
-					choices: $choices,
-				),
-				widget: $widget,
-				errors: $byPart[$part] ?? [],
-				settled: $isSettled,
-			);
+			if (!is_array($po['lines'] ?? null)) {
+				$views[$part] = $this->partView($part, null, $po, $widget, $value, $required, $errors, $isSettled, $whole);
+
+				continue;
+			}
+
+			// A part held as a list — an address's street — is one control per line, labelled
+			// in order. Only the first is required, and it carries the part's errors.
+			$shared = array_diff_key($po, ['lines' => true, 'lineTokens' => true, 'id' => true]);
+			$tokens = is_array($po['lineTokens'] ?? null) ? array_values($po['lineTokens']) : [];
+			$lines = is_array($value) ? array_values($value) : [];
+
+			foreach (array_values($po['lines']) as $i => $label) {
+				$lo = ['label' => (string) $label] + (isset($tokens[$i]) ? ['autocompleteToken' => $tokens[$i]] : []);
+
+				$views["{$part}.{$i}"] = $this->partView(
+					$part,
+					$i,
+					array_merge($shared, $lo),
+					$widget,
+					$lines[$i] ?? null,
+					$required && $i === 0,
+					$i === 0 ? $errors : [],
+					$isSettled,
+					$whole,
+				);
+			}
 		}
 
 		return $views;
+	}
+
+	/**
+	 * @param array<string, mixed> $po the part's options
+	 * @param list<string> $errors
+	 */
+	private function partView(
+		string $part,
+		?int $line,
+		array $po,
+		string $widget,
+		mixed $value,
+		bool $required,
+		array $errors,
+		bool $settled,
+		Control $whole,
+	): PartView {
+		$path = $line === null ? [$part] : [$part, (string) $line];
+		$labels = is_array($po['options'] ?? null) ? $po['options'] : [];
+		$choices = [];
+
+		foreach ((array) ($po['choices'] ?? []) as $choice => $label) {
+			$choices[(string) $choice] = self::labelOf($labels, (string) $choice, (string) $label);
+		}
+
+		return new PartView(
+			name: $part,
+			label: (string) ($po['label'] ?? ucfirst(str_replace('_', ' ', $part))),
+			control: new Control(
+				id: (string) ($po['id'] ?? $whole->id . '-' . implode('-', $path)),
+				name: $whole->name . '[' . implode('][', $path) . ']',
+				type: (string) ($po['type'] ?? 'text'),
+				value: self::text($value),
+				required: $required,
+				readonly: (bool) ($po['readonly'] ?? $whole->readonly),
+				disabled: (bool) ($po['disabled'] ?? $whole->disabled),
+				hidden: (bool) ($po['hidden'] ?? false),
+				autofocus: (bool) ($po['autofocus'] ?? false),
+				autocomplete: FormOptionResolver::autocompleteFor($po),
+				pattern: self::string($po['pattern'] ?? null),
+				inputmode: self::string($po['inputmode'] ?? null),
+				placeholder: self::string($po['hint'] ?? null),
+				choices: $choices,
+			),
+			widget: $widget,
+			errors: $errors,
+			settled: $settled,
+			line: $line,
+		);
 	}
 
 	/**
@@ -405,7 +457,11 @@ final class FieldViewFactory
 			],
 			$value instanceof Field\Address\Value,
 			$value instanceof Field\Money\Value => array_map(
-				static fn(mixed $part): ?string => $part === null ? null : (string) $part,
+				static fn(mixed $part): string|array|null => match (true) {
+					$part === null, $part === [] => null,
+					is_array($part) => array_map(strval(...), $part),
+					default => (string) $part,
+				},
 				$value->parts(),
 			),
 			$value instanceof Stringable => (string) $value,

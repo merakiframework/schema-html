@@ -51,17 +51,15 @@ final class FormOptions implements Options
 	}
 
 	/**
-	 * The language this form's validation messages are rendered in, and optionally where the
-	 * wording comes from. Required: rendering throws {@see Exception\MessagesNotConfigured}
-	 * without it.
+	 * The language this form's validation messages are rendered in, and where the wording comes
+	 * from. Required: rendering throws {@see Exception\MessagesNotConfigured} without it.
 	 *
-	 * The provider falls back to the schema's own (`new Facade(..., messages: $provider)`) when
-	 * none is given here. The wording lives in `meraki/schema`'s message packs, so every port
-	 * says the same thing; this package only chooses which language to use.
+	 * The wording lives in `meraki/schema`'s message packs, so every port says the same thing;
+	 * this package only chooses which pack and which language to use.
 	 *
 	 *     $options->withMessages('en-AU', Mf2Provider::fromPackage('meraki/schema-language-english'));
 	 */
-	public function withMessages(string $locale, ?Provider $provider = null): self
+	public function withMessages(string $locale, Provider $provider): self
 	{
 		$this->messages = new Messages($locale, $provider);
 		return $this;

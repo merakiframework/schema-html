@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Html;
 
 use Meraki\Schema\Html\Request\SequentialRowKeys;
+use Meraki\Schema\Html\Support\Forms;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
@@ -78,12 +79,12 @@ final class FormOptionsTest extends TestCase
 	{
 		$rowKeys = new SequentialRowKeys('line');
 		$options = (new FormOptions())
-			->withMessages('en-AU')
+			->withMessages('en-AU', Forms::messages())
 			->settledParts(SettledPart::Hidden)
 			->withRowKeys($rowKeys);
 
 		$this->assertSame('en-AU', $options->messages?->locale);
-		$this->assertNull($options->messages?->provider);
+		$this->assertSame(Forms::messages(), $options->messages?->provider);
 		$this->assertSame(SettledPart::Hidden, $options->settledParts);
 		$this->assertSame($rowKeys, $options->rowKeys);
 	}

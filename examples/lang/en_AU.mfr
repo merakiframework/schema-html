@@ -1,5 +1,0 @@
-@locale = en_AU
-
-part.postal_code = postcode
-part.administrative_area = state
-part.locality = suburb

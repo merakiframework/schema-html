@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Wizard;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\Support\Forms;
 use Meraki\Schema\Html\Csrf\SynchroniserToken;
 use Meraki\Schema\Html\Csrf\TokenMismatch;
@@ -28,9 +28,9 @@ final class CsrfFlowTest extends TestCase
 		$this->provider = new SynchroniserToken(new InMemoryStorage());
 	}
 
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add(
 			$schema->createNameField('name'),
 			$schema->createEmailAddressField('email'),

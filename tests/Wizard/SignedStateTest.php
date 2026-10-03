@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Wizard;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\Support\Forms;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\Signer;
@@ -26,9 +26,9 @@ final class SignedStateTest extends TestCase
 		return new SignedHiddenFieldStore(new Signer('state-secret'));
 	}
 
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add(
 			$schema->createNameField('name'),
 			$schema->createEmailAddressField('email'),

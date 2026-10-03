@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Wizard;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\Input;
 use Meraki\Schema\Html\Request\PayloadMapper;
@@ -19,7 +19,7 @@ use Meraki\Schema\Html\Request\PayloadMapper;
 final class Form
 {
 	public function __construct(
-		private readonly Facade $schema,
+		private readonly Definition $schema,
 		private readonly FormOptions $options,
 		private readonly StateStore $store,
 		private readonly Renderer $renderer = new Renderer(),

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Wizard;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\FieldResult;
 use Meraki\Schema\SchemaValidationResult;
 
@@ -16,7 +16,7 @@ use Meraki\Schema\SchemaValidationResult;
  */
 final class Validator
 {
-	public function validateGroup(Facade $schema, Group $group, object $payload): SchemaValidationResult
+	public function validateGroup(Definition $schema, Group $group, object $payload): SchemaValidationResult
 	{
 		$full = $schema->validate($payload);
 		$mine = [];

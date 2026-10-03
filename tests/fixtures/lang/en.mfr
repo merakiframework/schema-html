@@ -1,5 +1,6 @@
-# A stand-in for meraki/schema-language-english until it is published.
-# Covers every constraint meraki/schema 2.0.0-alpha.2 reports.
+# Wording for the tests, fixed so their assertions do not move when the published
+# pack's do. Support\FixturePackTest fails when the core reports a key this lacks.
+# Covers every constraint meraki/schema 2.0.0-alpha.3 reports.
 @locale = en
 
 shape.missing = This is required.
@@ -27,12 +28,10 @@ kind.Time = time
 kind.Uri = web address
 kind.Uuid = UUID
 
-part.organization = organisation
-part.line1 = street address
-part.line2 = second address line
+part.street = street address
 part.dependent_locality = dependent locality
 part.locality = locality
-part.administrative_area = administrative area
+part.subdivision = state or region
 part.postal_code = postal code
 part.country = country
 part.currency = currency
@@ -41,6 +40,8 @@ part.number = card number
 part.expiry = expiry date
 part.name = name on the card
 part.security_code = security code
+part.size = size
+part.type = type
 
 list.separator = {|, |}
 list.lastSeparator = {| or |}
@@ -84,14 +85,25 @@ numberType = Enter a {$bound} number.
 allowedCurrencies = Choose one of these currencies: {$bound}.
 minAmount = Enter {$bound} or more.
 maxAmount = Enter {$bound} or less.
+streetRequired = Enter a street address.
+localityRequired = Enter a {$part}.
+subdivisionRequired = Enter a {$part}.
+postalCodeRequired = Enter a {$part}.
+localityUsed = That country has no {$part}.
+dependentLocalityUsed = That country has no {$part}.
+subdivisionUsed = That country has no {$part}.
+postalCodeUsed = That country has no {$part}.
 postalCodeFormat = That is not a valid {$part} for the country you chose.
-administrativeArea = That is not a {$part} we recognise for the country you chose.
-line1Visitable = Enter a street address: a PO box or bag service is not somewhere that can be visited.
-specific = Enter a street address.
+knownSubdivision = That is not a {$part} we recognise for the country you chose.
+streetVisitable = Enter a street address: a PO box or bag service is not somewhere that can be visited.
+streetLineLimit = Use no more than {$bound} lines.
+numberRequired = Enter a {$part}.
+currencyRequired = Choose a currency.
+amountRequired = Enter an amount.
+expiryRequired = Enter the expiry date.
+nameRequired = Enter the name on the card.
 numberFormat = That is not a card number.
 numberChecksum = That card number is not valid.
-expiryFormat = Enter the expiry as a month and year.
 expiryInFuture = That card has expired.
 expiryWithinReach = That expiry is too far away.
-namePresent = Enter the name on the card.
 securityCodeFormat = That is not a valid security code.

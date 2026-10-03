@@ -17,6 +17,9 @@ final readonly class PartView
 	 * @param string $widget which widget draws it: one of the `WIDGET_*` constants
 	 * @param list<string> $errors what is wrong with this part
 	 * @param bool $settled whether the field's configuration already decides its value
+	 * @param int|null $line which line of a part held as a list this draws (an address's
+	 *        `street` is one input per line), or null for a part holding one value. The part's
+	 *        errors are on its first line.
 	 */
 	public function __construct(
 		public string $name,
@@ -25,5 +28,6 @@ final readonly class PartView
 		public string $widget = self::WIDGET_INPUT,
 		public array $errors = [],
 		public bool $settled = false,
+		public ?int $line = null,
 	) {}
 }

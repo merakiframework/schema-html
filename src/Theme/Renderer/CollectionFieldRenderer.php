@@ -19,8 +19,10 @@ use Meraki\Schema\Html\Theme\Widgets;
  * removing one leaves every other row's name — and its inputs, errors and row rules — as it was.
  *
  * With FieldOptions::addInDialog() the spare row goes in a dialog instead, and existing rows are
- * shown read-only (their values carried in hidden inputs). A hidden `__draft[<field>]` marks the
- * spare row so a stepped form can drop it unless it was the one being added.
+ * shown read-only (their values carried in hidden inputs) — except a row with something wrong
+ * with it, which is drawn editable with its messages so it can be put right where it is. A hidden
+ * `__draft[<field>]` marks the spare row so a stepped form can drop it unless it was the one
+ * being added.
  */
 final class CollectionFieldRenderer implements FieldRenderer
 {
@@ -31,7 +33,7 @@ final class CollectionFieldRenderer implements FieldRenderer
 		$children = [];
 
 		foreach ($view->rows as $row) {
-			$children[] = $view->addDialog !== null
+			$children[] = $view->addDialog !== null && !$row->hasErrors()
 				? $this->readOnlyRow($w, $control->name, $row)
 				: $this->editableRow($theme, $control->name, $row, removable: true);
 		}
@@ -85,7 +87,8 @@ final class CollectionFieldRenderer implements FieldRenderer
 			if ($field->parts !== []) {
 				foreach ($field->parts as $part) {
 					$value = $part->control->value ?? '';
-					$children[] = $w->collectionValue($field->label . ' ' . strtolower($part->label), $value);
+					$shown = $part->control->choices[$value] ?? $value;
+					$children[] = $w->collectionValue($field->label . ' ' . strtolower($part->label), $shown);
 					$children[] = $w->hidden($part->control->name, $value);
 				}
 
@@ -104,7 +107,7 @@ final class CollectionFieldRenderer implements FieldRenderer
 			}
 
 			$value = $field->control->value ?? '';
-			$children[] = $w->collectionValue($field->label, $value);
+			$children[] = $w->collectionValue($field->label, $field->control->choices[$value] ?? $value);
 			$children[] = $w->hidden($field->control->name, $value);
 		}
 

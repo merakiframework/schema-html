@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Html\Presentation\Layout;
 
 use Meraki\Schema\Field;
+use Meraki\Schema\Field\Address\Requirements;
 use Meraki\Schema\Field\Address\Value;
 use Meraki\Schema\Html\AddressVocabulary;
 use Meraki\Schema\Html\Presentation\PartLayout;
@@ -11,14 +12,31 @@ use Meraki\Schema\Html\Presentation\PartLayout;
 /**
  * An address, asked for the way the countries it allows describe one.
  *
- * - **Labels follow the country** when exactly one is allowed ("Suburb", "State",
- *   "ZIP Code"); with several they generalise and the hint lists the alternatives.
- * - **Dropdowns show names and submit codes** — the country always, the state only when one
- *   country is allowed (with several, which subdivisions are valid depends on the choice).
+ * What is asked, and what is marked required, is the core's answer
+ * ({@see Field\Address::requirementsFor()}), so the form never promises less or more than the
+ * server checks:
+ *
+ * - **Required parts** are the ones every allowed country requires at the field's precision.
+ *   With any country allowed nothing beyond the country can be known in advance, so nothing else
+ *   is marked; the server still judges the submitted country's rules.
  * - **Unused parts are left out.** Singapore has no state, Hong Kong no postcode, and asking
  *   for one is worse than not asking.
- * - **`pattern` and `inputmode`** on the postcode for a single allowed country; `numeric` only
- *   where the postcode really is digits.
+ * - **Parts below the field's precision are left out.** A field asking only for a locality
+ *   ({@see Field\Address::minPrecisionOf()}) is a service area, not a delivery address; the core
+ *   would accept a street, but the form does not ask for one.
+ * - **Dropdowns show names and submit codes**: the country always, the subdivision when one
+ *   country is allowed (with several, which subdivisions are valid depends on the choice).
+ * - **`pattern` and `inputmode`** on the postcode for a single allowed country, unless one of its
+ *   subdivisions has a pattern of its own; `numeric` only where the postcode really is digits.
+ *
+ * Words come from {@see AddressVocabulary}: labels follow the country when exactly one is
+ * allowed ("Suburb", "State", "ZIP Code"); with several they generalise and the hint lists the
+ * alternatives.
+ *
+ * The street is one part holding a list of lines, drawn as one input per line — two by default,
+ * as most checkouts ask. Name the lines to change how many there are:
+ *
+ *     $options->configureOptionsFor('address')->configureOptionsFor('street')->lines('Street', 'Unit', 'Building');
  *
  * The country part is always listed; whether a *settled* one (a single allowed country) is drawn
  * is the form's choice ({@see \Meraki\Schema\Html\SettledPart}).
@@ -27,12 +45,14 @@ final class AddressLayout implements PartLayout
 {
 	/** The parts that mean the same thing everywhere, and so keep one label. */
 	private const DEFAULTS = [
-		'organization' => ['label' => 'Organisation', 'autocompleteToken' => 'organization'],
-		'line1' => ['label' => 'Address', 'autocompleteToken' => 'address-line1'],
-		'line2' => ['label' => 'Apartment, unit, etc.', 'autocompleteToken' => 'address-line2'],
+		'street' => [
+			'label' => 'Address',
+			'lines' => ['Address', 'Apartment, unit, etc.'],
+			'lineTokens' => ['address-line1', 'address-line2', 'address-line3'],
+		],
 		'dependent_locality' => ['label' => 'Suburb', 'autocompleteToken' => 'address-level3'],
 		'locality' => ['label' => 'City', 'autocompleteToken' => 'address-level2'],
-		'administrative_area' => ['label' => 'Administrative Area', 'autocompleteToken' => 'address-level1'],
+		'subdivision' => ['label' => 'Administrative Area', 'autocompleteToken' => 'address-level1'],
 		'postal_code' => ['label' => 'Postal Code', 'autocompleteToken' => 'postal-code'],
 		'country' => ['label' => 'Country', 'autocompleteToken' => 'country'],
 	];
@@ -46,62 +66,108 @@ final class AddressLayout implements PartLayout
 		assert($field instanceof Field\Address);
 
 		$countries = $field->allowedCountries;
-		$vocabulary = $this->vocabulary;
-		$required = $vocabulary->requiredParts($countries);
+		$requirements = $countries === [] ? [] : array_values($field->requirementsFor());
+		$used = self::usedBy($requirements);
+		$required = self::requiredByAll($requirements);
+		$only = count($requirements) === 1 ? $requirements[0] : null;
 		$parts = [];
 
 		foreach (Value::partNames() as $part) {
-			if (!$vocabulary->isUsedByAny($part, $countries)) {
+			if (!$field->precision->covers($part) || ($used !== null && !in_array($part, $used, true))) {
 				continue;
 			}
 
 			$spec = self::DEFAULTS[$part] ?? ['label' => ucfirst(str_replace('_', ' ', $part))];
 
-			if (($label = $vocabulary->labelFor($part, $countries)) !== null) {
+			if (($label = $this->vocabulary->labelFor($part, $countries)) !== null) {
 				$spec['label'] = $label;
 			}
 
-			if (($hint = $vocabulary->hintFor($part, $countries)) !== null) {
+			if (($hint = $this->vocabulary->hintFor($part, $countries)) !== null) {
 				$spec['hint'] = $hint;
 			}
 
-			$spec['required'] = match ($part) {
-				'country' => true,
-				'line1' => $field->mustBeSpecific,
-				default => in_array($part, $required, true),
-			};
+			$spec['required'] = $part === 'country' || in_array($part, $required, true);
 
-			// Postcode rules belong to one country; with several allowed, which applies is not
-			// known until the country is chosen, so the server-side constraint does the work.
-			if ($part === 'postal_code' && count($countries) === 1) {
-				$pattern = $vocabulary->postalCodePatternFor($countries[0]);
-
-				if ($pattern !== null) {
-					$spec['pattern'] = $pattern;
-
-					if ($vocabulary->postalCodeIsNumeric($pattern)) {
-						$spec['inputmode'] = 'numeric';
-					}
-				}
+			if ($part === 'postal_code' && $only !== null) {
+				$spec += $this->postalCodeHints($only);
 			}
 
 			if ($part === 'country') {
 				$spec['widget'] = 'select';
-				$spec['choices'] = $vocabulary->countryNames($countries);
+				$spec['choices'] = $this->vocabulary->countryNames($countries);
 			}
 
-			if ($part === 'administrative_area' && count($countries) === 1) {
-				$subdivisions = $vocabulary->subdivisionNames($countries[0]);
-
-				if ($subdivisions !== []) {
-					$spec['widget'] = 'select';
-					$spec['choices'] = $subdivisions;
-				}
+			if ($part === 'subdivision' && $only !== null && $only->subdivisions !== []) {
+				$spec['widget'] = 'select';
+				$spec['choices'] = $only->subdivisions;
 			}
 
 			$parts[$part] = $spec;
 		}
 
 		return $parts;
+	}
+
+	/**
+	 * The parts any allowed country uses, plus the country; null when any country is allowed, so
+	 * every part may apply.
+	 *
+	 * @param list<Requirements> $requirements
+	 * @return list<string>|null
+	 */
+	private static function usedBy(array $requirements): ?array
+	{
+		if ($requirements === []) {
+			return null;
+		}
+
+		$used = ['country'];
+
+		foreach ($requirements as $country) {
+			$used = [...$used, ...$country->usedParts];
+		}
+
+		return array_values(array_unique($used));
+	}
+
+	/**
+	 * The parts every allowed country requires — an intersection, so the `required` marker never
+	 * over-promises when countries disagree.
+	 *
+	 * @param list<Requirements> $requirements
+	 * @return list<string>
+	 */
+	private static function requiredByAll(array $requirements): array
+	{
+		$required = null;
+
+		foreach ($requirements as $country) {
+			$required = $required === null
+				? $country->requiredParts
+				: array_values(array_intersect($required, $country->requiredParts));
+		}
+
+		return $required ?? [];
+	}
+
+	/**
+	 * Client-side hints for the postcode of the one allowed country. Left off where a subdivision
+	 * replaces the country's pattern with its own (parts of China and Colombia): the browser
+	 * cannot know the subdivision yet, and would refuse codes the server accepts.
+	 *
+	 * @return array<string, string>
+	 */
+	private function postalCodeHints(Requirements $country): array
+	{
+		$pattern = $country->postalCodeFormat;
+
+		if ($pattern === null || $country->postalCodeFormatOverrides !== []) {
+			return [];
+		}
+
+		return $this->vocabulary->postalCodeIsNumeric($pattern)
+			? ['pattern' => $pattern, 'inputmode' => 'numeric']
+			: ['pattern' => $pattern];
 	}
 }

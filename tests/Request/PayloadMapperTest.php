@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Request;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\Input;
 use Meraki\Schema\Html\SettledValues;
 use PHPUnit\Framework\TestCase;
@@ -18,7 +18,7 @@ use stdClass;
 #[CoversClass(SequentialRowKeys::class)]
 final class PayloadMapperTest extends TestCase
 {
-	private function map(Facade $schema, array $wire): object
+	private function map(Definition $schema, array $wire): object
 	{
 		return (new PayloadMapper())->map($schema, new Input($wire));
 	}
@@ -26,7 +26,7 @@ final class PayloadMapperTest extends TestCase
 	#[Test]
 	public function a_structured_fields_parts_become_a_record(): void
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add($schema->createMoneyField('price', ['AUD', 'NZD']));
 
 		$payload = $this->map($schema, ['price' => ['currency' => 'AUD', 'amount' => '12.50']]);
@@ -37,7 +37,7 @@ final class PayloadMapperTest extends TestCase
 	#[Test]
 	public function a_settled_part_the_form_left_out_is_filled_back_in(): void
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add(
 			$schema->createAddressField('billing', ['AU']),
 			$schema->createMoneyField('price', ['AUD']),
@@ -45,7 +45,7 @@ final class PayloadMapperTest extends TestCase
 		);
 
 		$payload = $this->map($schema, [
-			'billing' => ['line1' => '1 King St', 'locality' => 'Brisbane'],
+			'billing' => ['street' => ['1 King St'], 'locality' => 'Brisbane'],
 			'price' => ['amount' => '12.50'],
 			'mobile' => ['number' => '0412 345 678'],
 		]);
@@ -58,10 +58,10 @@ final class PayloadMapperTest extends TestCase
 	#[Test]
 	public function a_submitted_settled_part_is_left_for_the_core_to_judge(): void
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add($schema->createAddressField('billing', ['AU']));
 
-		$payload = $this->map($schema, ['billing' => ['line1' => '1 King St', 'country' => 'NZ']]);
+		$payload = $this->map($schema, ['billing' => ['street' => ['1 King St'], 'country' => 'NZ']]);
 
 		$this->assertSame('NZ', $payload->billing->country);
 	}
@@ -73,14 +73,14 @@ final class PayloadMapperTest extends TestCase
 	#[Test]
 	public function a_record_with_nothing_but_settled_parts_is_not_submitted(): void
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add(
 			$schema->createAddressField('billing', ['AU']),
 			$schema->createMoneyField('price', ['AUD']),
 		);
 
 		$payload = $this->map($schema, [
-			'billing' => ['line1' => '', 'locality' => '', 'country' => 'AU'],
+			'billing' => ['street' => ['', ''], 'locality' => '', 'country' => 'AU'],
 			'price' => ['amount' => '', 'currency' => 'AUD'],
 		]);
 
@@ -88,10 +88,76 @@ final class PayloadMapperTest extends TestCase
 		$this->assertTrue($schema->validate($payload)->forField('billing')?->wasMissing());
 	}
 
+	/**
+	 * The core raises on a key a record does not declare, because to it that is the port's
+	 * mapping being wrong. On a form the keys are whatever the browser sent, so they are taken,
+	 * not forwarded.
+	 */
+	#[Test]
+	public function a_part_the_value_does_not_declare_is_left_behind(): void
+	{
+		$schema = new Definition('checkout');
+		$schema->add($schema->createAddressField('billing', ['AU']));
+
+		$payload = $this->map($schema, ['billing' => [
+			'street' => ['1 King St'],
+			'line1' => 'from a stale page',
+			'locality' => 'Brisbane',
+			'subdivision' => 'QLD',
+			'postal_code' => '4000',
+		]]);
+
+		$this->assertObjectNotHasProperty('line1', $payload->billing);
+		$this->assertFalse($schema->validate($payload)->anyFailed());
+	}
+
+	/** A part left empty is left out, so the core reports it as the part that is missing. */
+	#[Test]
+	public function an_empty_part_is_left_out_rather_than_sent_as_null(): void
+	{
+		$schema = new Definition('checkout');
+		$schema->add($schema->createMoneyField('price', ['AUD', 'NZD']));
+
+		$payload = $this->map($schema, ['price' => ['currency' => 'NZD', 'amount' => '']]);
+
+		$this->assertEquals((object) ['currency' => 'NZD'], $payload->price);
+		$this->assertSame(
+			['amountRequired'],
+			array_map(
+				static fn($failure): string => $failure->name,
+				iterator_to_array($schema->validate($payload)->forField('price')->getFailedConstraints()),
+			),
+		);
+	}
+
+	/** A street is a list of lines: one input per line, the empty ones dropped. */
+	#[Test]
+	public function a_streets_lines_are_its_non_empty_inputs(): void
+	{
+		$schema = new Definition('checkout');
+		$schema->add($schema->createAddressField('billing', ['AU']));
+
+		$payload = $this->map($schema, ['billing' => ['street' => ['1 King St', ''], 'locality' => 'Brisbane']]);
+
+		$this->assertSame(['1 King St'], $payload->billing->street);
+	}
+
+	/** A theme may draw the street as one textarea instead; its line breaks separate the lines. */
+	#[Test]
+	public function a_street_typed_into_one_box_is_split_into_lines(): void
+	{
+		$schema = new Definition('checkout');
+		$schema->add($schema->createAddressField('billing', ['AU']));
+
+		$payload = $this->map($schema, ['billing' => ['street' => "Level 2\r\n1 King St\r\n", 'locality' => 'Brisbane']]);
+
+		$this->assertSame(['Level 2', '1 King St'], $payload->billing->street);
+	}
+
 	#[Test]
 	public function a_collection_becomes_named_rows_of_records(): void
 	{
-		$schema = new Facade('booking');
+		$schema = new Definition('booking');
 		$schema->add($schema->createCollectionField(
 			'lessons',
 			$schema->createDateField('date'),
@@ -114,7 +180,7 @@ final class PayloadMapperTest extends TestCase
 	#[Test]
 	public function blank_rows_are_dropped(): void
 	{
-		$schema = new Facade('booking');
+		$schema = new Definition('booking');
 		$schema->add($schema->createCollectionField(
 			'lessons',
 			$schema->createDateField('date'),
@@ -133,7 +199,7 @@ final class PayloadMapperTest extends TestCase
 	#[Test]
 	public function a_positional_list_is_passed_on_for_the_core_to_refuse(): void
 	{
-		$schema = new Facade('booking');
+		$schema = new Definition('booking');
 		$schema->add($schema->createCollectionField('lessons', $schema->createDateField('date')));
 
 		$payload = $this->map($schema, ['lessons' => [['date' => '2026-01-01']]]);
@@ -145,7 +211,7 @@ final class PayloadMapperTest extends TestCase
 	#[Test]
 	public function a_checkbox_reads_as_true_when_ticked_and_false_from_its_sentinel(): void
 	{
-		$schema = new Facade('prefs');
+		$schema = new Definition('prefs');
 		$schema->add(
 			$schema->createBooleanField('ticked'),
 			$schema->createBooleanField('unticked'),
@@ -165,7 +231,7 @@ final class PayloadMapperTest extends TestCase
 	#[Test]
 	public function a_value_of_on_is_only_a_checkbox_to_a_boolean(): void
 	{
-		$schema = new Facade('prefs');
+		$schema = new Definition('prefs');
 		$schema->add($schema->createEnumField('switch', ['on', 'off']));
 
 		$payload = $this->map($schema, ['switch' => 'on']);
@@ -176,7 +242,7 @@ final class PayloadMapperTest extends TestCase
 	#[Test]
 	public function anything_the_schema_does_not_have_is_left_out(): void
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createNameField('name'));
 
 		$payload = $this->map($schema, ['name' => 'Jane', '_method' => 'put', 'admin' => '1']);
@@ -187,7 +253,7 @@ final class PayloadMapperTest extends TestCase
 	#[Test]
 	public function an_uploaded_file_becomes_the_record_a_file_field_reads(): void
 	{
-		$schema = new Facade('upload');
+		$schema = new Definition('upload');
 		$schema->add($schema->createFileField('resume'));
 
 		$payload = $this->map($schema, ['resume' => ['name' => 'cv.pdf', 'type' => 'application/pdf', 'size' => 1024]]);

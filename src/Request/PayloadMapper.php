@@ -3,8 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Request;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
+use Meraki\Schema\Field\ValueClass;
 use Meraki\Schema\Html\Input;
 use Meraki\Schema\Html\SettledValues;
 use stdClass;
@@ -22,7 +23,10 @@ use stdClass;
  * - a nested array reaching a field that holds one value becomes a record (`stdClass`), with any
  *   {@see SettledValues settled part} the form left out filled back in. A record with nothing but
  *   settled parts in it is treated as not submitted, so it reports *missing* rather than as an
- *   address that is all country and no street;
+ *   address that is all country and no street. Only the parts the value declares are taken, and
+ *   a part left empty is left out rather than sent as null;
+ * - a part held as a list (an address's `street`) is taken as its non-empty lines, whether it
+ *   arrived as one input per line or as one newline-separated textarea;
  * - a collection becomes an array of named rows, each mapped through the template. **Blank rows
  *   are dropped** — the spare row a form always offers arrives empty, and the core takes whatever
  *   it is given as intentional. Row names pass through untouched, so a positional list still
@@ -38,7 +42,7 @@ final class PayloadMapper
 	/**
 	 * @param Input|array<array-key, mixed> $wire
 	 */
-	public function map(Facade $schema, Input|array $wire): object
+	public function map(Definition $schema, Input|array $wire): object
 	{
 		$data = $wire instanceof Input ? $wire->toArray() : $wire;
 		$payload = new stdClass();
@@ -83,6 +87,10 @@ final class PayloadMapper
 	 */
 	private function record(Field $field, array $parts): ?stdClass
 	{
+		if (ValueClass::hasParts($field)) {
+			$parts = self::declaredParts($field, $parts);
+		}
+
 		$settled = SettledValues::of($field);
 		$said = array_diff_key($parts, $settled);
 
@@ -94,7 +102,53 @@ final class PayloadMapper
 			$parts[$part] ??= $value;
 		}
 
-		return (object) $parts;
+		return (object) array_filter($parts, static fn(mixed $part): bool => $part !== null);
+	}
+
+	/**
+	 * The parts the field's value declares, and nothing else.
+	 *
+	 * The core raises rather than reports a key it does not know, because to it that is the
+	 * port's mapping being wrong. On a form the keys are whatever the browser sent — a stale
+	 * page, an extension, someone editing the request — so they are the submitter's, and the
+	 * port's job is to take the keys it knows rather than forward the rest.
+	 *
+	 * @param array<array-key, mixed> $parts
+	 * @return array<string, mixed>
+	 */
+	private static function declaredParts(Field $field, array $parts): array
+	{
+		$parts = array_intersect_key($parts, array_flip(ValueClass::partNamesOf($field)));
+
+		foreach (ValueClass::listPartsOf($field) as $list) {
+			if (array_key_exists($list, $parts)) {
+				$parts[$list] = self::lines($parts[$list]);
+			}
+		}
+
+		return $parts;
+	}
+
+	/**
+	 * A list part's lines: one input per line, or a textarea's text split on its line breaks.
+	 * Empty lines are dropped (the spare second line of an address is usually empty); anything
+	 * else passes through for the core to judge.
+	 *
+	 * @return list<mixed>|mixed|null null when no line holds anything
+	 */
+	private static function lines(mixed $raw): mixed
+	{
+		if (is_string($raw)) {
+			$raw = preg_split('/\R/', $raw) ?: [];
+		}
+
+		if (!is_array($raw)) {
+			return $raw;
+		}
+
+		$lines = array_values(array_filter($raw, static fn(mixed $line): bool => $line !== null && $line !== ''));
+
+		return $lines === [] ? null : $lines;
 	}
 
 	/**

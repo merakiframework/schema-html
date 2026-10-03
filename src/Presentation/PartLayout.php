@@ -18,7 +18,9 @@ use Meraki\Schema\Field;
  * - `type`: the input type (`text`, `tel`, `month`, …);
  * - `widget`: `input` or `select`;
  * - `choices`: value => label for a select;
- * - `required`: whether the part needs an answer when the field does.
+ * - `required`: whether the part needs an answer when the field does;
+ * - `lines`: for a part held as a list, one label per line to draw (an address's `street`);
+ * - `lineTokens`: the autocomplete token for each line, by position.
  *
  * Options a caller sets for a part (`$options->configure('price')->configure('amount')`) are
  * laid over these.

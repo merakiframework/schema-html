@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\Csrf\Guard;
 use Meraki\Schema\Html\Csrf\SignedToken;
 use Meraki\Schema\Html\Csrf\SynchroniserToken;
@@ -28,9 +28,9 @@ use InvalidArgumentException;
 #[CoversClass(FormRenderer::class)]
 final class CsrfTest extends TestCase
 {
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createNameField('name'));
 
 		return $schema;

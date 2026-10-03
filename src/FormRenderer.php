@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldResult;
 use Meraki\Schema\Html\Exception\MessagesNotConfigured;
@@ -48,10 +48,10 @@ class FormRenderer
 	}
 
 	/**
-	 * @throws MessagesNotConfigured when the options say no language, or nothing provides one
+	 * @throws MessagesNotConfigured when the options say nothing about messages
 	 * @throws UnsupportedLocale when the provider cannot serve the language asked for
 	 */
-	public function render(Facade $schema, ?FormOptions $options = null, ?SchemaValidationResult $result = null): string
+	public function render(Definition $schema, ?FormOptions $options = null, ?SchemaValidationResult $result = null): string
 	{
 		$options ??= new FormOptions();
 		$scene = $this->scene($schema, $options);
@@ -79,11 +79,11 @@ class FormRenderer
 	 * @throws MessagesNotConfigured
 	 * @throws UnsupportedLocale
 	 */
-	public function scene(Facade $schema, FormOptions $options): Scene
+	public function scene(Definition $schema, FormOptions $options): Scene
 	{
-		$messages = $options->messages ?? throw MessagesNotConfigured::noLocale((string) $schema->name);
+		$messages = $options->messages ?? throw MessagesNotConfigured::for((string) $schema->name);
 
-		return new Scene($schema, $options, $messages->translatorFor($schema));
+		return new Scene($schema, $options, $messages->translator());
 	}
 
 	/**
@@ -149,7 +149,7 @@ class FormRenderer
 	 * encoding when there is a file to upload, the `_method` field for methods HTML forms cannot
 	 * send, and the CSRF token when protection is on. Shared with stepped rendering.
 	 */
-	public function startForm(Facade $schema, FormOptions $options): Element
+	public function startForm(Definition $schema, FormOptions $options): Element
 	{
 		$w = $this->theme->widgets();
 
@@ -179,7 +179,7 @@ class FormRenderer
 	 * Prepends the theme's scoped stylesheet for whatever the markup uses, unless the default
 	 * styles are turned off. Shared with stepped rendering.
 	 */
-	public function withStyles(string $html, Facade $schema, FormOptions $options): string
+	public function withStyles(string $html, Definition $schema, FormOptions $options): string
 	{
 		if (!$options->defaultStyles) {
 			return $html;
@@ -241,7 +241,7 @@ class FormRenderer
 	/**
 	 * @return list<string>
 	 */
-	public function fieldNames(Facade $schema): array
+	public function fieldNames(Definition $schema): array
 	{
 		$names = [];
 

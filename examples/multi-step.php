@@ -22,15 +22,15 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\Wizard\Form;
 use Meraki\Schema\Html\Wizard\HiddenFieldStore;
 use Meraki\Schema\Message\Mf2\Mf2Provider;
 
-function buildSchema(): Facade
+function buildSchema(): Definition
 {
-	$schema = new Facade('booking');
+	$schema = new Definition('booking');
 
 	$contactMethod = $schema->createEnumField('contact_method', ['email', 'phone']);
 	$email = $schema->createEmailAddressField('email_address');
@@ -59,7 +59,7 @@ function buildSchema(): Facade
 
 function buildOptions(): FormOptions
 {
-	$options = (new FormOptions())->withMessages('en-AU', Mf2Provider::fromDirectory(__DIR__ . '/lang'));
+	$options = (new FormOptions())->withMessages('en-AU', Mf2Provider::fromPackage('meraki/schema-language-english'));
 
 	$options->configureOptionsFor('contact_method')->renderAsSelect();
 	$options->configureOptionsFor('lessons')->addInDialog(trigger: 'Add a lesson', confirm: 'Add lesson');

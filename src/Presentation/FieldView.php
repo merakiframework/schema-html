@@ -49,4 +49,26 @@ final readonly class FieldView
 		public bool $customizable = false,
 		public bool $combobox = false,
 	) {}
+
+	/** Whether anything is wrong with this field: itself, one of its parts, or one of its rows. */
+	public function hasErrors(): bool
+	{
+		if ($this->errors !== []) {
+			return true;
+		}
+
+		foreach ($this->parts as $part) {
+			if ($part->errors !== []) {
+				return true;
+			}
+		}
+
+		foreach ($this->rows as $row) {
+			if ($row->hasErrors()) {
+				return true;
+			}
+		}
+
+		return false;
+	}
 }

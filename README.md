@@ -10,12 +10,12 @@ Keeps HTML/form-rendering concerns out of the core schema domain. Reads only
 ## Usage
 
 ```php
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\FormRenderer;
 use Meraki\Schema\Message\Mf2\Mf2Provider;
 
-$schema = new Facade('signup');
+$schema = new Definition('signup');
 $schema->add(
     $schema->createNameField('full_name'),
     $schema->createEmailAddressField('email'),
@@ -61,17 +61,23 @@ echo (new FormRenderer())->render($schema, $options, $schema->resolve(prefilledW
 language to speak, and `Exception\UnsupportedLocale` when the provider has nothing for it.
 
 `meraki/schema` owns the wording: MessageFormat 2 packs installed with Composer, so every port
-says the same thing. This package only chooses the language — per form, so per request:
+says the same thing. This package only chooses the pack and the language — per form, so per
+request, the same way the core takes them per call on `validate()`. The English pack is
+published, but not yet tagged:
+
+```
+composer require meraki/schema-language-english:dev-main
+```
 
 ```php
 $options->withMessages('en-AU', Mf2Provider::fromPackage('meraki/schema-language-english'));
 
-// or, when the schema already carries a provider (new Facade(..., messages: $provider)):
-$options->withMessages('en-AU');
+// or your own pack, checked with the core's `vendor/bin/schema-lang validate <dir>`:
+$options->withMessages('en', Mf2Provider::fromDirectory(__DIR__ . '/lang'));
 ```
 
 The renderer applies the language itself, so it does not matter whether `validate()` was asked
-for one. The core answers an unsupported language with silence; this package refuses instead,
+for one, or for another. The core answers an unsupported language with silence; this package refuses instead,
 because a form whose error boxes are silently empty is the failure nobody notices.
 
 ## Form options
@@ -79,7 +85,7 @@ because a form whose error boxes are silently empty is the failure nobody notice
 `FormOptions` is a fluent builder:
 
 - `postTo($url)` / `putTo($url)` / `getFrom($url)` — form method + action.
-- `withMessages($locale, $provider = null)` — see above.
+- `withMessages($locale, $provider)` — see above.
 - `settledParts(SettledPart)` — see [Settled parts](#settled-parts).
 - `withRowKeys(RowKeys)` — how new collection rows are named (`row1`, `row2`, … by default).
 - `configure($name)` (or `configureOptionsFor($name)`) → `FieldOptions`:
@@ -87,8 +93,8 @@ because a form whose error boxes are silently empty is the failure nobody notice
   `renderAsRadioGroup()`, `renderAsButtonGroup()`, `renderAsTextarea()`, `readonly()`,
   `disabled()`, `hidden()`, `autocomplete()`, `labelOption($value, $label)`,
   `allowAddingOptions()`, `revealInline()`, `revealWithPopup()`, `revealWithDialog()`,
-  `addInDialog()`, `inheritInNewItems()`, `settledParts()`, and `configureFor()` for a
-  structured field's parts or a collection's template fields.
+  `addInDialog()`, `inheritInNewItems()`, `settledParts()`, `lines()` (an address's street
+  lines), and `configureFor()` for a structured field's parts or a collection's template fields.
 
 ### Autocomplete
 
@@ -101,7 +107,7 @@ outright, on a field or on one of its parts:
 
 ```php
 $options->configure('password')->autocomplete('new-password');
-$options->configure('shipping')->configure('line1')->autocomplete('shipping address-line1');
+$options->configure('shipping')->configureFor('postal_code')->autocomplete('shipping postal-code');
 ```
 
 ## Request input
@@ -185,23 +191,35 @@ All three validate identically; the choice is markup only.
 
 ### Addresses
 
-`Field\Address` is laid out by `AddressLayout`, which reads the countries the field allows and
-asks `commerceguys/addressing` how they describe an address. The core deliberately holds none of
-this — what a country calls the thing in the `administrative_area` box is presentation —
-so `AddressVocabulary` owns it here.
+`Field\Address` is laid out by `AddressLayout`. What it asks for, and what it marks required, is
+the core's own answer — `Address::requirementsFor()` — so the form promises exactly what the
+server checks. What a country *calls* each part is presentation the core leaves out, so
+`AddressVocabulary` reads it from `commerceguys/addressing`.
 
+- **The parts** are `street` (a list of lines), `dependent_locality`, `locality`, `subdivision`,
+  `postal_code` and `country`.
+- **The street is one input per line**, `billing[street][0]`, `billing[street][1]`: two by
+  default, as most checkouts ask, with `address-line1`, `address-line2`… autocomplete tokens.
+  Change them with `$options->configure('billing')->configureFor('street')->lines('Street', 'Unit', 'Building')`.
+  The mapper drops empty lines, and also accepts one newline-separated textarea if a theme draws
+  the street that way.
+- **Required parts** are the ones every allowed country requires at the field's precision. With
+  any country allowed, nothing beyond the country can be known in advance, so nothing else is
+  marked; the server still applies the submitted country's rules, and a part that was left out
+  is reported against its own box ("Enter a postcode.").
+- **Parts below the field's precision are not asked for.** A field with
+  `minPrecisionOf(Precision::Locality)` is a service area: the core would accept a street, but
+  the form does not ask for one.
 - **Labels follow the country** when exactly one is allowed: Australia gets "Suburb" and
   "State", Japan "Prefecture", the US "City" and "ZIP Code". With several allowed, the label
   generalises ("Administrative Area") and the hint carries the alternatives.
-- **Dropdowns show names, submit codes** — "Queensland" for `QLD`, "Australia" for `AU`. The
-  country dropdown offers only the countries the field allows. The state is only a dropdown
-  when one country is allowed.
+- **Dropdowns show names, submit codes** — "Queensland" for `AU-QLD` (the core canonicalises a
+  subdivision to its full ISO 3166-2 code), "Australia" for `AU`. The country dropdown offers
+  only the countries the field allows; the subdivision is a dropdown when one country is allowed.
 - **Unused parts are left out** — Singapore has no state, Hong Kong no postcode.
 - **`pattern` and `inputmode`** are set on the postcode for a single allowed country, with
-  `inputmode="numeric"` only where the postcode really is digits-only.
-- **Required parts** are marked from the country's own rules. *This is a hint only for now:*
-  `meraki/schema` 2.0.0-alpha.2 does not yet enforce a country's required parts, so the server
-  accepts them blank until it does.
+  `inputmode="numeric"` only where the postcode really is digits-only — and left off where one of
+  its subdivisions has a pattern of its own, which the browser could not know to apply.
 
 ## Collections
 
@@ -303,8 +321,8 @@ A step whose every field a rule has hidden is skipped (`showAllSteps()` opts out
 
 ## Examples
 
-Runnable scripts live in [`examples/`](examples/), with an example message pack in
-[`examples/lang/`](examples/lang/):
+Runnable scripts live in [`examples/`](examples/). They use the published English pack, which is
+a dev dependency of this repository:
 
 - [`render.php`](examples/render.php) — a form, then the same form re-rendered
   with inline validation errors. `php examples/render.php > form.html`
@@ -323,6 +341,7 @@ Serve the last three rather than redirecting stdout, since they need real submis
 See the core's `UPGRADING.md` for building schemas (`add($schema->createXField(...))`, rules as
 values with `addRule()`).
 
+- **The schema is a `Definition`** (`Meraki\Schema\Definition`, which was `Facade`).
 - **Messages are required.** Add `->withMessages($locale, $provider)` to every `FormOptions`.
   `ValidationMessages` and `ValidationMessageProvider` are gone — the wording comes from the
   core's message packs.
@@ -335,9 +354,11 @@ values with `addRule()`).
   from the result instead.
 - **Collection rows are named.** `lessons[0][date]` is now `lessons[row1][date]`; the remove
   action is `remove:lessons:row1`, and nothing is renumbered.
-- **Addresses:** the country part is `country` (was `country_code`), and a settled country is
-  left out of the form rather than hidden. Cards: the holder part is `name` (was `holder`).
-  Phone numbers are drawn as a country and a number.
+- **Addresses** follow the core's rebuilt address: `line1`/`line2` became the `street` list
+  (`billing[street][0]`, `billing[street][1]`), `administrative_area` became `subdivision`
+  (submitted as `AU-QLD`), `organization` is gone, and the country part is `country` (was
+  `country_code`). A settled country is left out of the form rather than hidden. Cards: the
+  holder part is `name` (was `holder`). Phone numbers are drawn as a country and a number.
 - **Rendering is themed.** `registerFieldRenderer($class, $callable)` becomes
   `new FormRenderer($theme->withRenderer($class, $renderer))`. `DialogView` and `DialogStyles`
   became `Theme\DefaultWidgets::dialog()` and `::styles()`.
@@ -362,3 +383,7 @@ falls back to Packagist.
 composer install
 composer test
 ```
+
+The tests use their own message pack, [`tests/fixtures/lang/`](tests/fixtures/lang/), so their
+assertions do not move when the published pack's wording does. `Support\FixturePackTest` fails
+when the core reports a message key the fixtures say nothing about.
