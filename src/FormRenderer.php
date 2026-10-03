@@ -268,6 +268,7 @@ class FormRenderer
 				trigger: $group->trigger !== 'Open' ? $group->trigger : $group->title,
 				confirm: $group->confirm,
 				close: $group->close,
+				heading: $group->title,
 			), $elements),
 			Wizard\Container::Details => $w->details($group->title, $elements, $group->open),
 			Wizard\Container::Fieldset => $w->fieldset($group->title, $elements, ['class' => 'mf-group']),

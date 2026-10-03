@@ -133,6 +133,104 @@ final class WizardTest extends TestCase
 		$this->assertSame('pro', (string) $result->validation?->forField('plan')?->value);
 	}
 
+	/** The settled country of an Australian-only address is filled back in for the core, so it is in what the core accepted. */
+	#[Test]
+	public function completion_hands_back_the_payload_the_schema_accepted(): void
+	{
+		$schema = new Definition('booking');
+		$schema->add(
+			$schema->createPhoneNumberField('phone', ['AU']),
+			$schema->createAddressField('pickup', ['AU']),
+			$schema->createBooleanField('terms')->mustBeAccepted(),
+		);
+		$options = Forms::options();
+		$options->group('Details', ['phone', 'pickup', 'terms']);
+		$form = new Form($schema, $options, new HiddenFieldStore());
+
+		$result = $form->handle([
+			'phone' => ['number' => '0412 345 678'],
+			'pickup' => ['street' => "1 Queen St\r\n", 'locality' => 'Brisbane', 'subdivision' => 'AU-QLD', 'postal_code' => '4000'],
+			'terms' => 'on',
+			'__wizard' => ['step' => '0', 'action' => 'submit'],
+		]);
+
+		$this->assertTrue($result->completed);
+		$this->assertEquals((object) [
+			'phone' => (object) ['number' => '0412 345 678', 'country' => 'AU'],
+			'pickup' => (object) [
+				'street' => ['1 Queen St'],
+				'locality' => 'Brisbane',
+				'subdivision' => 'AU-QLD',
+				'postal_code' => '4000',
+				'country' => 'AU',
+			],
+			'terms' => true,
+		], $result->payload);
+		// The answers as they were submitted are still there, for re-rendering or storing.
+		$this->assertSame(['number' => '0412 345 678'], $result->data['phone']);
+	}
+
+	/**
+	 * The core discards what was submitted for a field a rule ignores, so handing it on would pass
+	 * along an answer nobody accepted — here, detail typed before switching back to "simple".
+	 */
+	#[Test]
+	public function the_accepted_payload_leaves_out_what_a_rule_ignored(): void
+	{
+		$form = new Form($this->conditionalSchema(), $this->conditionalOptions(), new HiddenFieldStore());
+
+		$result = $form->handle([
+			'mode' => 'simple',
+			'detail' => 'typed while advanced',
+			'name' => 'Alice',
+			'__wizard' => ['step' => '2', 'action' => 'submit'],
+		]);
+
+		$this->assertTrue($result->completed);
+		$this->assertEquals((object) ['mode' => 'simple', 'name' => 'Alice'], $result->payload);
+		$this->assertSame('typed while advanced', $result->data['detail']);
+	}
+
+	/** A row rule's ignore is honoured inside the row, too. */
+	#[Test]
+	public function the_accepted_payload_leaves_out_what_a_row_rule_ignored(): void
+	{
+		$schema = new Definition('booking');
+		$kind = $schema->createEnumField('kind', ['pickup', 'meet']);
+		$address = $schema->createTextField('address');
+		$schema->add($schema->createCollectionField('lessons', $kind, $address)->forEachRow(
+			$kind->when()->equals('meet')->then($address->makeOptional())->thenIgnore($address),
+		));
+		$options = Forms::options();
+		$options->group('Lessons', ['lessons']);
+		$form = new Form($schema, $options, new HiddenFieldStore());
+
+		$result = $form->handle([
+			'lessons' => [
+				'row1' => ['kind' => 'pickup', 'address' => '1 Queen St'],
+				'row2' => ['kind' => 'meet', 'address' => 'typed before choosing meet'],
+			],
+			'__wizard' => ['step' => '0', 'action' => 'submit'],
+		]);
+
+		$this->assertTrue($result->completed);
+		$this->assertEquals([
+			'row1' => (object) ['kind' => 'pickup', 'address' => '1 Queen St'],
+			'row2' => (object) ['kind' => 'meet'],
+		], $result->payload?->lessons);
+	}
+
+	#[Test]
+	public function a_step_is_a_fieldset_with_its_title_as_the_legend(): void
+	{
+		$form = new Form($this->schema(), $this->options(), new HiddenFieldStore());
+
+		$this->assertMatchesRegularExpression(
+			'/<fieldset class="mf-group"><legend>Account<\/legend>.*data-name="name".*<\/fieldset>/s',
+			$form->start(),
+		);
+	}
+
 	#[Test]
 	public function an_optional_field_submitted_empty_does_not_block_advancing(): void
 	{

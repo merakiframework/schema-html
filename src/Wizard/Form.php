@@ -3,10 +3,15 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Html\Wizard;
 
+use Closure;
 use Meraki\Schema\Definition;
+use Meraki\Schema\Field\Collection;
+use Meraki\Schema\FieldResult;
 use Meraki\Schema\Html\FormOptions;
 use Meraki\Schema\Html\Input;
+use Meraki\Schema\Html\Presentation\RuleEffects;
 use Meraki\Schema\Html\Request\PayloadMapper;
+use stdClass;
 
 /**
  * Convenience driver tying a schema, its form options (which carry the steps), and
@@ -103,7 +108,7 @@ final class Form
 		}
 
 		if ($isLast) {
-			return Result::completed($state->data, $result);
+			return Result::completed($state->data, $result, self::accepted($payload, $result->forField(...)));
 		}
 
 		$target = $this->renderer->resolveVisibleIndex($this->schema, $this->options, $state->data, $index + 1, 1);
@@ -111,6 +116,43 @@ final class Form
 		return Result::render(
 			$this->renderer->render($this->schema, $this->options, $this->store, $state->movedTo($target)),
 		);
+	}
+
+	/**
+	 * The payload the schema judged, less the fields its rules ignored — at the top level and in
+	 * each collection row, where a row rule may ignore a field of its own.
+	 *
+	 * The core withholds what was submitted for an ignored field and validates it as empty, so
+	 * handing it on would pass along an answer nobody accepted: a participant's name typed before
+	 * switching back to booking for yourself.
+	 *
+	 * @param Closure(string): ?FieldResult $resultFor
+	 */
+	private static function accepted(object $record, Closure $resultFor): object
+	{
+		$accepted = new stdClass();
+
+		foreach (get_object_vars($record) as $name => $value) {
+			$result = $resultFor((string) $name);
+
+			if ($result !== null && RuleEffects::of($result)->ignored) {
+				continue;
+			}
+
+			if ($result instanceof Collection\Result && is_array($value)) {
+				foreach ($value as $key => $row) {
+					$item = $result->itemAt((string) $key);
+
+					if (is_object($row) && $item !== null) {
+						$value[$key] = self::accepted($row, $item->forField(...));
+					}
+				}
+			}
+
+			$accepted->{$name} = $value;
+		}
+
+		return $accepted;
 	}
 
 	/**

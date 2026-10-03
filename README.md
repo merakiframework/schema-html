@@ -312,9 +312,19 @@ the page source. Use `SessionStore` when they must not reach the client at all.
 
 Groups (`$options->group('Title', ['field', …])`) render one per request by default.
 `Wizard\Form` sequences them: `start()` for the first GET, `handle($_POST)` for each step.
-Each step validates only its own fields; the last validates the whole schema. On completion,
-`$result->data` holds the answers as submitted and `$result->validation` the schema's verdict,
-with the typed values: `$result->validation->forField('email')->value`.
+Each step is drawn the way a single-page form draws the same group, titled by it: a `<fieldset>`
+with the title as its legend by default, or a `<details>` or `<dialog>` headed by it
+(`->asDetails()`, `->asDialog()` per group).
+Each step validates only its own fields; the last validates the whole schema. On completion the
+answers come three ways:
+
+- `$result->payload` — what the schema accepted, as plain data ready for `json_encode()`: mapped
+  for it (a settled country filled back in, a ticked box as `true`, a street as its lines), and
+  without any field a rule ignored, since the schema discarded what was sent for those. This is
+  what to hand on or store.
+- `$result->validation` — the schema's verdict, with the typed values:
+  `$result->validation->forField('email')->value`.
+- `$result->data` — exactly what the browser sent, for re-rendering the form.
 
 A step whose every field a rule has hidden is skipped (`showAllSteps()` opts out).
 

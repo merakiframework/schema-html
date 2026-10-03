@@ -72,8 +72,9 @@ final class GroupTest extends TestCase
 
 		$this->assertStringContainsString('<dialog id="mf-group-0"', $html);
 		$this->assertStringContainsString('command="show-modal" commandfor="mf-group-0"', $html);
-		// the trigger defaults to the group title
+		// the trigger defaults to the group title, and the dialog is headed by it
 		$this->assertStringContainsString('>Your name</button>', $html);
+		$this->assertStringContainsString('<h2 class="mf-dialog-heading">Your name</h2>', $html);
 	}
 
 	#[Test]

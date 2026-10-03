@@ -204,5 +204,7 @@ final class DialogTest extends TestCase
 		$this->assertStringContainsString('<dialog id="mf-group-1"', $result->html);
 		$this->assertStringContainsString('>Pick a date</button>', $result->html);
 		$this->assertStringContainsString('data-name="start_date"', $result->html);
+		// headed by the step's title, as a fieldset step is by its legend
+		$this->assertStringContainsString('<dialog id="mf-group-1" class="mf-dialog"><h2 class="mf-dialog-heading">When</h2>', $result->html);
 	}
 }

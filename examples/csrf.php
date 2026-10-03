@@ -90,8 +90,8 @@ try {
 	exit;
 }
 
-$input = Input::fromGlobals();
-$result = $schema->validate((new PayloadMapper())->map($schema, $input));
+$payload = (new PayloadMapper())->map($schema, Input::fromGlobals());
+$result = $schema->validate($payload);
 
 if ($result->anyFailed()) {
 	echo page('<h1>Sign up</h1>' . $renderer->render($schema, $options, $result));
@@ -100,6 +100,6 @@ if ($result->anyFailed()) {
 
 echo page(
 	'<h1>Signed up!</h1><pre>'
-	. htmlspecialchars((string) json_encode($input->toArray(), JSON_PRETTY_PRINT), ENT_QUOTES)
+	. htmlspecialchars((string) json_encode($payload, JSON_PRETTY_PRINT), ENT_QUOTES)
 	. '</pre><p><a href="/csrf.php">Start again</a></p>',
 );

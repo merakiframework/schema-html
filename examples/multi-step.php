@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 	$body = $result->completed
 		? '<h1>Booked!</h1><p>We received your booking:</p><pre>'
-			. htmlspecialchars(json_encode($result->data, JSON_PRETTY_PRINT) ?: '', ENT_QUOTES)
+			. htmlspecialchars(json_encode($result->payload, JSON_PRETTY_PRINT) ?: '', ENT_QUOTES)
 			. '</pre><p><a href="/">Start again</a></p>'
 		: $result->html;
 } else {

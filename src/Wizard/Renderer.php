@@ -145,6 +145,7 @@ final class Renderer
 				trigger: $group->trigger,
 				confirm: $group->confirm,
 				close: $group->close,
+				heading: $group->title,
 				action: $isLast ? 'submit' : 'next',
 			), $elements));
 			$this->appendState($form, $w, $store, $state, $group->fieldNames, $index);
@@ -156,14 +157,12 @@ final class Renderer
 			return;
 		}
 
-		if ($container === Container::Details) {
-			// On its own step a disclosure is shown open.
-			$form->append($w->details($group->title, $elements, open: true));
-		} else {
-			foreach ($elements as $element) {
-				$form->append($element);
-			}
-		}
+		// Titled the way a single-page form titles the same group, so the container means one
+		// thing whichever flow draws it. On its own step a disclosure is shown open.
+		$form->append(match ($container) {
+			Container::Details => $w->details($group->title, $elements, open: true),
+			Container::Fieldset => $w->fieldset($group->title, $elements, ['class' => 'mf-group']),
+		});
 
 		$this->appendState($form, $w, $store, $state, $group->fieldNames, $index);
 		$form->append($this->navigation($w, $index, $total));

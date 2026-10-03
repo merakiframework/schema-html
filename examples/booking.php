@@ -135,7 +135,8 @@ function buildOptions(): FormOptions
 {
 	$options = (new FormOptions())->withMessages('en-AU', Mf2Provider::fromPackage('meraki/schema-language-english'));
 
-	$options->configureOptionsFor('account')->renderAsButtonGroup()->labelOptions([
+	// A step is titled by its group, so a step of one field asks that field as a question.
+	$options->configureOptionsFor('account')->renderAsButtonGroup()->label('Do you have an account?')->labelOptions([
 		'user' => 'I have an account',
 		'guest' => 'Continue as a guest',
 	]);
@@ -148,11 +149,11 @@ function buildOptions(): FormOptions
 		'myself'       => 'Myself',
 		'someone_else' => 'Someone else',
 	]);
-	$options->configureOptionsFor('vehicle')->renderAsDropdown()->labelOptions([
+	$options->configureOptionsFor('vehicle')->renderAsDropdown()->label('Which vehicle will you learn in?')->labelOptions([
 		'school' => 'School vehicle',
 		'own'    => 'My own vehicle',
 	]);
-	$options->configureOptionsFor('transmission')->renderAsDropdown()->labelOptions([
+	$options->configureOptionsFor('transmission')->renderAsDropdown()->label('Which transmission?')->labelOptions([
 		'automatic' => 'Automatic',
 		'manual'    => 'Manual',
 	]);
@@ -169,7 +170,7 @@ function buildOptions(): FormOptions
 	$options->configureOptionsFor('participant_email')->label('Participant\'s email')
 		->hint('Required if the participant manages their own lessons');
 	$options->configureOptionsFor('phone')->hint('e.g. 0412 345 678');
-	$options->configureOptionsFor('lessons')
+	$options->configureOptionsFor('lessons')->label('Lessons to book')
 		->addInDialog(trigger: 'Add another lesson', confirm: 'Add lesson')
 		->inheritInNewItems('pickup', 'notes');
 	$options->configureOptionsFor('terms')->label('I accept the terms and conditions');
@@ -196,7 +197,9 @@ function page(string $body): string
 		body { font: 16px/1.5 system-ui, sans-serif; max-width: 34rem; margin: 3rem auto; padding: 0 1rem; }
 		.field { margin: 0 0 1rem; }
 		.field label { display: block; font-weight: 600; }
-		input, select, textarea { font: inherit; padding: .35rem; min-width: 16rem; }
+		input, select, textarea { font: inherit; padding: .35rem; }
+		input:not([type=radio], [type=checkbox]), select, textarea { min-width: 16rem; }
+		.field .mf-radio, .field .mf-button { display: block; font-weight: normal; }
 		.errors p { color: #b00020; margin: .25rem 0 0; }
 		.wizard-nav, .mf-dialog-actions { display: flex; gap: .5rem; margin-top: 1rem; }
 		button { font: inherit; padding: .45rem 1rem; cursor: pointer; }
@@ -311,7 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	// On completion this is the payment payload that would be POSTed to the payment service.
 	$body = $result->completed
 		? '<h1>Ready for payment</h1><p>This payload would be handed to the payment service:</p><pre>'
-			. htmlspecialchars(json_encode($result->data, JSON_PRETTY_PRINT) ?: '', ENT_QUOTES)
+			. htmlspecialchars(json_encode($result->payload, JSON_PRETTY_PRINT) ?: '', ENT_QUOTES)
 			. '</pre><p><a href="/">Start again</a></p>'
 		: $result->html;
 } else {
